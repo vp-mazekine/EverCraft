@@ -1,0 +1,14 @@
+name:         EverCraft
+main:         com.mazekine.everscale.minecraft.paper.EverCraftPlugin
+version:      '${version}'
+api-version:  1.17
+author:       cryonyx
+description:  The plugin allows in-game transactions on the Everscale blockchain
+website:      evermc.mazekine.com
+everscale:
+  currencies:
+    default:  EVER
+    supported:
+      - EVER
+      - USDT
+      - USDC
