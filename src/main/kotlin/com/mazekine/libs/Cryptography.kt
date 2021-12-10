@@ -1,5 +1,6 @@
 package com.mazekine.libs
 
+import org.bukkit.Bukkit
 import java.nio.ByteBuffer
 import java.security.NoSuchAlgorithmException
 import java.security.SecureRandom
@@ -18,7 +19,17 @@ import javax.crypto.spec.SecretKeySpec
  * @author Mkyong, https://mkyong.com/java/java-11-chacha20-poly1305-encryption-examples/
  */
 class ChaCha20Poly1305 {
-    val salt: String = "I am a super-duper secret salt message" //  TODO: Move the salt definition to the config
+    private val salt by lazy {
+        try {
+            Bukkit.getPluginManager()
+                .getPlugin("EverCraft")
+                ?.config
+                ?.get("security.salt")
+                ?: "EverCraft"
+        } catch (e: Exception) {
+            "EverCraft"
+        }
+    } //"I am a super-duper secret salt message" //  TODO: Move the salt definition to the config
 
     /**
      * Encrypt a byte array using the secret key
@@ -99,7 +110,7 @@ class ChaCha20Poly1305 {
     @Throws(NoSuchAlgorithmException::class, InvalidKeySpecException::class)
     fun secretKeyFromString(input: String): SecretKey {
         val factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
-        val spec: KeySpec = PBEKeySpec(input.toCharArray(), salt.toByteArray(), 65536, 256)
+        val spec: KeySpec = PBEKeySpec(input.toCharArray(), salt.toString().toByteArray(), 65536, 256)
         return SecretKeySpec(factory.generateSecret(spec).encoded, "AES")
     }
 

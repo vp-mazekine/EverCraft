@@ -18,7 +18,7 @@ object PluginSecureStorage {
                 .getPlugin("EverCraft")
                 ?.config
                 ?.get("storage.password")
-                ?: "EverCraft" //"I am the strongest password of all" //  TODO: take the password definition to the outer config
+                ?: "EverCraft"
         } catch (e: Exception) {
             "EverCraft"
         }

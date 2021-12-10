@@ -34,4 +34,6 @@ security:
   salt:
 
 locale: en
+
+# Reserved for future use
 debug: false
