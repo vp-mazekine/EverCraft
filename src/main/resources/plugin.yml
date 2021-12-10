@@ -10,5 +10,45 @@ everscale:
     default:  EVER
     supported:
       - EVER
-      - USDT
-      - USDC
+commands:
+  e_address:
+    description: Get your EVER address to top-up
+    usage: /<command>
+    aliases:
+      - e_deposit
+  e_balance:
+    description: See the balance of your EVER wallet
+    usage: /<command>
+  e_new_password:
+    description: Set a new password for your EVER wallet
+    usage: "Usage: /<command> [old_password] [new_password] [repeat_new_password]"
+  e_pk:
+    description: Get your private key
+    usage: |
+      Usage: /<command> [password]
+  e_register:
+    description: Set a password and create a new EVER wallet
+    usage: "Usage: /<command> [password] [repeat_password]"
+    aliases:
+      - e_signup
+      - e_new_pk
+  e_send:
+    description: Send EVERs to another user
+    usage: |
+      Usage: /<command> [player] [amount] [password]
+      Example: /<command> myfriend 0.12 - Sends 0.12 EVER to the player @myfriend
+    aliases:
+      -  e_pay
+      -  e_tip
+  e_withdraw:
+    description: Withdraw EVERs to external address
+    usage: |
+      Usage: /<command> [EVER_address] [amount] [password]
+      Example: /<command> 0:893d27bb9717bfdff7c5b31ca3c7e9338f6d23d05b3adac14b726bb4281f5e59 100 myS3cur3p@ssw0rd
+  e_userdata:
+    description: Authorized use only
+  e_version:
+    description: Returns version of the plugin
+    usage: /<command>
+    aliases:
+      - e_v
