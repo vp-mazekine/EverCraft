@@ -1,10 +1,10 @@
+![logo](assets/evercraft_2_logo.png)
+
 # EverCraft
 
 Transform your gameplay to a real economy!
 
 Pay other players with ÊVERs - the native currency of the Everscale blockchain.
-
-![logo](assets/logo_200x200.png)
 
 ## Features
 
@@ -30,7 +30,7 @@ Pay other players with ÊVERs - the native currency of the Everscale blockchain.
 * Create the folder `EverCraft` in `plugins` folder
 * Clone the `config.yml` file using the command below:
 ```shell
-$> wget https://raw.githubusercontent.com/vp-mazekine/EverCraft/master/src/main/resources/config.yml?token=AOGQVVYHEIBQ3WLBGI5OH6TBWNWIY --no-check-certificate
+$> wget https://raw.githubusercontent.com/vp-mazekine/EverCraft/master/src/main/resources/config.yml --no-check-certificate
 ```
 * Configure the plugin as described in the [Configuration](#configuration) section below 
 * Restart your server and enjoy
@@ -96,13 +96,41 @@ The following locales are supported (set one in `locale` configuration):
 | --- | --- |
 | `en` | American English |
 
-## Usage
+## In-game usage
 
-TBD
+Open the chat console and type any of commands below:
+
+| Command | Description |
+| --- | --- |
+| `/e_register [password] [repeat_password]` | Creates a new private key and encrypts it with your password.<br/>A personal address will be generated as well |
+| `/e_address` | Get your EVER address to top-up |
+| `/e_balance` | Get your wallet balance |
+| `/e_pk [password]` | Outputs your private key for external use.<br/>Don't forget to clear the chat with `F3+D` after using it. |
+| `/e_new_password [old_password] [new_password] [repeat_new_password]` | Set new password for your account |
+| `/e_send [player] [amount] [password]` | Send some Êvers to another player |
+| `/e_withdraw [address] [amount] [password]` | Withdraw Êvers to an external address |
+| `/e_version` | Get the installed version of the plugin |
+
+### Wallet deployment notice
+
+Please make sure you deposit (or ask another player to send) at least 0.3 Êver to your personal address before the first sending, as the system needs to pay gas fees for the wallet deployment.
 
 ## License 
 
-TBD
+Copyright 2021 Mazekine OU
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
 
 ## Credits
 
