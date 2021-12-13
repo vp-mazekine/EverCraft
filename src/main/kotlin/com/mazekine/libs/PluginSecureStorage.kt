@@ -156,8 +156,6 @@ object PluginSecureStorage {
     private fun dumpKeyStorage() {
         if (!keyStorageFile.exists()) keyStorageFile.createNewFile()
 
-        //  TODO: Add zipping to save disk space
-
         keyStorageFile.writeBytes(
             cipher.encryptStringWithPassword(
                 Gson().toJson(keyStorage),
@@ -172,8 +170,6 @@ object PluginSecureStorage {
      */
     private fun dumpDataStorage() {
         if (!dataStorageFile.exists()) dataStorageFile.createNewFile()
-
-        //  TODO:   Add zipping to save disk space
 
         dataStorageFile.writeBytes(
             cipher.encryptStringWithPassword(

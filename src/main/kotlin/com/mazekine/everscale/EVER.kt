@@ -2,6 +2,7 @@ package com.mazekine.everscale
 
 import com.google.gson.Gson
 import com.mazekine.everscale.models.*
+import com.mazekine.libs.PluginLocale
 import ee.nx01.tonclient.*
 import ee.nx01.tonclient.abi.*
 import ee.nx01.tonclient.net.ParamsOfWaitForCollection
@@ -18,6 +19,7 @@ import kotlinx.coroutines.delay
 import org.bukkit.Bukkit
 import org.bukkit.configuration.file.FileConfiguration
 import org.slf4j.LoggerFactory
+import java.math.BigDecimal
 import java.util.*
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
@@ -82,7 +84,10 @@ object EVER {
      */
     private fun sign(path: String, body: String? = null): Pair<String, Long>? {
         if(!apiIsConfigured()) {
-            logger.error("[sign] TON API was not configured properly")
+            logger.error(
+                "[sign] " +
+                PluginLocale.getLocalizedError("error.tonapi.not_configured", colored = false)
+            )
             return null
         }
 
@@ -115,7 +120,10 @@ object EVER {
      */
     suspend fun checkAddress(address: String): Boolean? {
         if(!apiIsConfigured()) {
-            logger.error("[checkAddress] TON API was not configured properly")
+            logger.error(
+                "[checkAddress] " +
+                        PluginLocale.getLocalizedError("error.tonapi.not_configured", colored = false)
+            )
             return null
         }
 
@@ -172,7 +180,10 @@ object EVER {
         workchainId: Int = 0
     ): String? {
         if(!apiIsConfigured()) {
-            logger.error("[createAddress] TON API was not configured properly")
+            logger.error(
+                "[createAddress] " +
+                        PluginLocale.getLocalizedError("error.tonapi.not_configured", colored = false)
+            )
             return null
         }
 
@@ -215,7 +226,10 @@ object EVER {
 
     suspend fun getAddress(address: String): AddressBalanceOutputData? {
         if(!apiIsConfigured()) {
-            logger.error("[getAddress] TON API was not configured properly")
+            logger.error(
+                "[getAddress] " +
+                        PluginLocale.getLocalizedError("error.tonapi.not_configured", colored = false)
+            )
             return null
         }
 
@@ -268,12 +282,26 @@ object EVER {
         id: UUID = UUID.randomUUID()
     ): Triple<String, String?, String?>? {
         if(!apiIsConfigured()) {
-            logger.error("[createTransaction] TON API was not configured properly")
+            logger.error(
+                "[createTransaction] " +
+                        PluginLocale.getLocalizedError("error.tonapi.not_configured", colored = false)
+            )
             return null
         }
 
         val path = "$apiPrefix/transactions/create"
-        val tx = SendTransactionData(type, toAddress, value)    //  TODO: validation of value
+
+        value.toBigDecimalOrNull()?.let {
+            if(it <= BigDecimal(0)) {
+                logger.error("[createTransaction] Transaction value must be positive")
+                return null
+            }
+        } ?: run {
+            logger.error("[createTransaction] Transaction value cannot be empty")
+            return null
+        }
+
+        val tx = SendTransactionData(type, toAddress, value)
         val body = SendTransactionInput(
             bounce,
             fromAddress,
@@ -347,7 +375,10 @@ object EVER {
         if (txId == null && messageHash == null && txHash == null) return null
 
         if(!apiIsConfigured()) {
-            logger.error("[getTransaction] TON API was not configured properly")
+            logger.error(
+                "[getTransaction] " +
+                        PluginLocale.getLocalizedError("error.tonapi.not_configured", colored = false)
+            )
             return null
         }
 
@@ -451,7 +482,12 @@ object EVER {
                 )
                 transactions.transactions?.toMutableList() ?: mutableListOf()
             } catch (e: Exception) {
-                listOf()    //  TODO: Add logging
+                logger.error(
+                    "[getSafeMultisigTransactions] Got an exception while retrieving multisig transactions\n" +
+                            e.message + "\n" +
+                            e.stackTrace.joinToString("\n")
+                )
+                listOf()
             }
         } ?: run {
             return listOf()
@@ -500,7 +536,12 @@ object EVER {
                     /* no-op */
                 }
                 TransactionStatus.Done -> break     //  Continue execution
-                TransactionStatus.PartiallyDone, TransactionStatus.Error, null -> return null   //  TODO: Add logging
+                TransactionStatus.PartiallyDone, TransactionStatus.Error, null -> {
+                    logger.error(
+                        "[createTransactionToSignOnMultisig] Unexpected answer from TON API\n$tx"
+                    )
+                    return null
+                }
             }
             delay(1000)
             tx = getTransaction(txId = txId)

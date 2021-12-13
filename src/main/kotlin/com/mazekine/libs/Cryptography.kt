@@ -29,7 +29,7 @@ class ChaCha20Poly1305 {
         } catch (e: Exception) {
             "EverCraft"
         }
-    } //"I am a super-duper secret salt message" //  TODO: Move the salt definition to the config
+    } //"I am a super-duper secret salt message"
 
     /**
      * Encrypt a byte array using the secret key
@@ -142,7 +142,7 @@ fun ByteArray.toHex(): String {
 }
 
 fun String.hexToByteArray(): ByteArray {
-    check(length % 2 == 0) { "Must have an even length" }
+    check(length % 2 == 0) { PluginLocale.getLocalizedError("error.hex.odd", colored = false) }
 
     return ByteArray(length / 2) {
         Integer.parseInt(this, it * 2, (it + 1) * 2, 16).toByte()

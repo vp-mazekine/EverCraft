@@ -6,7 +6,6 @@ import com.mazekine.everscale.models.AccountType
 import com.mazekine.libs.ChaCha20Poly1305
 import com.mazekine.libs.PluginLocale
 import com.mazekine.libs.PluginSecureStorage
-import ee.nx01.tonclient.TonUtils
 import ee.nx01.tonclient.abi.KeyPair
 import kotlinx.coroutines.*
 import net.md_5.bungee.api.chat.ClickEvent
@@ -16,6 +15,7 @@ import org.bukkit.ChatColor
 import org.bukkit.command.Command
 import org.bukkit.command.CommandExecutor
 import org.bukkit.command.CommandSender
+import org.bukkit.command.PluginCommandYamlParser
 import org.bukkit.entity.Player
 import org.slf4j.LoggerFactory
 import java.math.BigDecimal
@@ -73,7 +73,10 @@ class EPKCommand : CommandExecutor {
     ): Boolean {
         //  Only players can use this command
         if (sender !is Player) {
-            sender.sendMessage("[EverCraft] Only a player may use this command")
+            sender.sendMessage(
+                PluginLocale.prefixError +
+                        PluginLocale.getLocalizedError("error.access.player_only")
+            )
             return false
         }
 
@@ -81,14 +84,16 @@ class EPKCommand : CommandExecutor {
 
         if (args.isEmpty()) {
             player.sendMessage(
-                "${ChatColor.RED}[EverCraft] Please specify the password"
+                PluginLocale.prefixError +
+                        PluginLocale.getLocalizedError("error.args.password.missing")
             )
             return false
         }
 
         if (args.size > 1) {
             player.sendMessage(
-                "${ChatColor.RED}[EverCraft] Too many arguments"
+                PluginLocale.prefixError +
+                        PluginLocale.getLocalizedError("error.args.wrong_number", arrayOf(1))
             )
             return false
         }
@@ -98,10 +103,8 @@ class EPKCommand : CommandExecutor {
         //  If the player hasn't created a PK yet
         if (encryptedPk == null) {
             player.sendMessage(
-                "${ChatColor.AQUA}[EverCraft] " +
-                        "${ChatColor.WHITE}You haven't created a private key yet.\n" +
-                        "Use the ${ChatColor.GREEN}/e_register " +
-                        "${ChatColor.WHITE}command first"
+                PluginLocale.prefixError +
+                        PluginLocale.getLocalizedError("error.account.not_created")
             )
             return true
         }
@@ -110,18 +113,31 @@ class EPKCommand : CommandExecutor {
             ChaCha20Poly1305().decryptStringWithPassword(encryptedPk, args[0])
         } catch (e: Exception) {
             player.sendMessage(
-                "${ChatColor.RED}[EverCraft] Wrong password!"
+                PluginLocale.prefixError +
+                        PluginLocale.getLocalizedError("error.args.password.wrong")
             )
             return false
         }
 
         player.sendMessage(
-            "${ChatColor.AQUA}[EverCraft] " +
-                    "${ChatColor.WHITE} Your private key: " +
-                    "${ChatColor.GREEN}$pk\n" +
-                    "${ChatColor.RED}Please use the " +
-                    "${ChatColor.WHITE}F3+D " +
-                    "${ChatColor.RED}to clear the chat after you copy the key"
+            TextComponent(PluginLocale.prefixRegular).apply {
+                this.addExtra(
+                    PluginLocale.getLocalizedMessage("pk.display.1")
+                )
+                this.addExtra(
+                    TextComponent(pk).apply {
+                        this.clickEvent = ClickEvent(
+                            ClickEvent.Action.COPY_TO_CLIPBOARD,
+                            pk
+                        )
+                        this.color = net.md_5.bungee.api.ChatColor.GREEN
+                    }
+                )
+                this.addExtra("\n")
+                this.addExtra(
+                    PluginLocale.getLocalizedError("pk.display.2")
+                )
+            }
         )
 
         return true
@@ -143,7 +159,10 @@ class ERegisterCommand : CommandExecutor {
     ): Boolean {
         //  Only players can use this command
         if (sender !is Player) {
-            sender.sendMessage("[EverCraft] Only a player may use this command")
+            sender.sendMessage(
+                PluginLocale.prefixError +
+                        PluginLocale.getLocalizedError("error.access.player_only")
+            )
             return false
         }
 
@@ -152,13 +171,15 @@ class ERegisterCommand : CommandExecutor {
         return when (args.size) {
             0 -> {
                 player.sendMessage(
-                    "${ChatColor.RED}[EverCraft] Please specify the password"
+                    PluginLocale.prefixError +
+                            PluginLocale.getLocalizedError("error.args.password.missing")
                 )
                 false
             }
             1 -> {
                 player.sendMessage(
-                    "${ChatColor.RED}[EverCraft] Please repeat the password"
+                    PluginLocale.prefixError +
+                            PluginLocale.getLocalizedError("error.args.password.repeat")
                 )
                 false
             }
@@ -170,7 +191,10 @@ class ERegisterCommand : CommandExecutor {
                     )
 
                     val encryptedPrivateKey = PluginSecureStorage.getPrivateKey(player.uniqueId.toString()) ?: run {
-                        player.sendMessage("${ChatColor.RED}[EverCraft] Private key was not saved. Try again later")
+                        player.sendMessage(
+                            PluginLocale.prefixError +
+                                    PluginLocale.getLocalizedError("error.account.pk.not_saved")
+                        )
                         return false
                     }
                     val privateKey = ChaCha20Poly1305().decryptStringWithPassword(encryptedPrivateKey, args[0])
@@ -184,37 +208,45 @@ class ERegisterCommand : CommandExecutor {
                             listOf(publicKey)
                         )
                     } ?: run {
-                        player.sendMessage("${ChatColor.RED}[EverCraft] Address was not created. Try again later")
+                        player.sendMessage(
+                            PluginLocale.prefixError +
+                                    PluginLocale.getLocalizedError("error.account.address.not_saved")
+                        )
                         return false
                     }
 
                     PluginSecureStorage.setPlayerAddress(player.uniqueId.toString(), address)
 
-                    val message = TextComponent("${ChatColor.AQUA}[EverCraft] ")
-                    message.addExtra("${ChatColor.WHITE}You have successfully registered.\n")
-                    message.addExtra("Click on your deposit address to copy it:\n")
-
-                    val clickableAddress = TextComponent(address)
-                    clickableAddress.color = net.md_5.bungee.api.ChatColor.GREEN
-                    clickableAddress.clickEvent = ClickEvent(
-                        ClickEvent.Action.COPY_TO_CLIPBOARD,
-                        address
+                    player.sendMessage(
+                        TextComponent(PluginLocale.prefixRegular).apply {
+                            this.addExtra(
+                                TextComponent(PluginLocale.getLocalizedMessage("account.status.success"))
+                            )
+                            this.addExtra(
+                                TextComponent(address).apply {
+                                    this.clickEvent = ClickEvent(
+                                        ClickEvent.Action.COPY_TO_CLIPBOARD,
+                                        address
+                                    )
+                                    this.color = net.md_5.bungee.api.ChatColor.GREEN
+                                }
+                            )
+                        }
                     )
-                    message.addExtra(clickableAddress)
-
-                    player.sendMessage(message)
 
                     true
                 } else {
                     player.sendMessage(
-                        "${ChatColor.RED}[EverCraft] Passwords don't match!"
+                        PluginLocale.prefixError +
+                                PluginLocale.getLocalizedError("error.args.password.no_match")
                     )
                     false
                 }
             }
             else -> {
                 player.sendMessage(
-                    "${ChatColor.RED}[EverCraft] Too many arguments!"
+                    PluginLocale.prefixError +
+                            PluginLocale.getLocalizedError("error.args.wrong_number", arrayOf(2))
                 )
                 false
             }
@@ -237,7 +269,10 @@ class ENewPasswordCommand : CommandExecutor {
     ): Boolean {
         //  Only players can use this command
         if (sender !is Player) {
-            sender.sendMessage("[EverCraft] Only a player may use this command")
+            sender.sendMessage(
+                PluginLocale.prefixError +
+                        PluginLocale.getLocalizedError("error.access.player_only")
+            )
             return false
         }
 
@@ -246,19 +281,22 @@ class ENewPasswordCommand : CommandExecutor {
         return when (args.size) {
             0 -> {
                 player.sendMessage(
-                    "${ChatColor.RED}[EverCraft] Please specify old password"
+                    PluginLocale.prefixError +
+                            PluginLocale.getLocalizedError("error.args.password.missing.old")
                 )
                 false
             }
             1 -> {
                 player.sendMessage(
-                    "${ChatColor.RED}[EverCraft] Please specify new password"
+                    PluginLocale.prefixError +
+                            PluginLocale.getLocalizedError("error.args.password.missing.new")
                 )
                 false
             }
             2 -> {
                 player.sendMessage(
-                    "${ChatColor.RED}[EverCraft] Please repeat new password"
+                    PluginLocale.prefixError +
+                            PluginLocale.getLocalizedError("error.args.password.repeat.new")
                 )
                 false
             }
@@ -268,10 +306,8 @@ class ENewPasswordCommand : CommandExecutor {
                 //  If the player hasn't created a PK yet
                 if (encryptedPk == null) {
                     player.sendMessage(
-                        "${ChatColor.AQUA}[EverCraft] " +
-                                "${ChatColor.WHITE}You haven't created a private key yet.\n" +
-                                "Use the ${ChatColor.GREEN}/e_register " +
-                                "${ChatColor.WHITE}command first"
+                        PluginLocale.prefixError +
+                                PluginLocale.getLocalizedError("error.account.not_created")
                     )
                     return true
                 }
@@ -280,7 +316,8 @@ class ENewPasswordCommand : CommandExecutor {
                     ChaCha20Poly1305().decryptStringWithPassword(encryptedPk, args[0])
                 } catch (e: Exception) {
                     player.sendMessage(
-                        "${ChatColor.RED}[EverCraft] Wrong password!"
+                        PluginLocale.prefixError +
+                                PluginLocale.getLocalizedError("error.args.password.wrong")
                     )
                     return false
                 }
@@ -293,20 +330,22 @@ class ENewPasswordCommand : CommandExecutor {
                     )
 
                     player.sendMessage(
-                        "${ChatColor.AQUA}[EverCraft] " +
-                                "${ChatColor.WHITE}GG, you have set a new password!"
+                        PluginLocale.prefixRegular +
+                                PluginLocale.getLocalizedMessage("password.status.success.new")
                     )
                     true
                 } else {
                     player.sendMessage(
-                        "${ChatColor.RED}[EverCraft] Passwords don't match!"
+                        PluginLocale.prefixError +
+                                PluginLocale.getLocalizedError("error.args.password.no_match")
                     )
                     false
                 }
             }
             else -> {
                 player.sendMessage(
-                    "${ChatColor.RED}[EverCraft] Too many arguments!"
+                    PluginLocale.prefixError +
+                            PluginLocale.getLocalizedError("error.args.wrong_number", arrayOf(3))
                 )
                 false
             }
@@ -329,21 +368,30 @@ class EBalanceCommand : CommandExecutor {
     ): Boolean {
         //  Only players can use this command
         if (sender !is Player) {
-            sender.sendMessage("[EverCraft] Only a player may use this command")
+            sender.sendMessage(
+                PluginLocale.prefixError +
+                        PluginLocale.getLocalizedError("error.access.player_only")
+            )
             return false
         }
 
         val player: Player = sender
 
         if (PluginSecureStorage.getPrivateKey(player.uniqueId.toString()) == null) {
-            sender.sendMessage("${ChatColor.RED}[EverCraft] You haven't registered yet.\nPlease use the /e_register command to create a new account.")
+            sender.sendMessage(
+                PluginLocale.prefixError +
+                        PluginLocale.getLocalizedError("error.account.not_created")
+            )
             return false
         }
 
         val address = PluginSecureStorage
             .findAddressByPlayerId(player.uniqueId.toString())
             ?: run {
-                sender.sendMessage("${ChatColor.RED}[EverCraft] You haven't created the address yet.\nPlease use the /e_address command.")
+                sender.sendMessage(
+                    PluginLocale.prefixError +
+                            PluginLocale.getLocalizedError("error.account.no_address")
+                )
                 return false
             }
 
@@ -352,7 +400,10 @@ class EBalanceCommand : CommandExecutor {
                 val playerBalanceNano = runBlocking {
                     EVER.getAddress(address)?.balance?.toBigDecimalOrNull()
                 } ?: run {
-                    "${ChatColor.RED}[EverCraft] Error getting the balance of your account"
+                    player.sendMessage(
+                        PluginLocale.prefixError +
+                                PluginLocale.getLocalizedError("error.account.balance.unavailable")
+                    )
                     return false
                 }
 
@@ -361,15 +412,27 @@ class EBalanceCommand : CommandExecutor {
                     .toPlainString()
 
                 player.sendMessage(
-                    "${ChatColor.AQUA}[EverCraft] " +
-                            "${ChatColor.WHITE} Your balance is $playerBalance EVER"
+                    TextComponent(PluginLocale.prefixRegular).apply {
+                        this.addExtra(
+                            TextComponent(
+                                PluginLocale.getLocalizedMessage(
+                                    "account.balance",
+                                    arrayOf(
+                                        playerBalance,
+                                        PluginLocale.currencyName.toString()
+                                    )
+                                )
+                            )
+                        )
+                    }
                 )
 
                 true
             }
             else -> {
                 player.sendMessage(
-                    "${ChatColor.RED}[EverCraft] Too many arguments!"
+                    PluginLocale.prefixError +
+                            PluginLocale.getLocalizedError("error.args.wrong_count")
                 )
                 false
             }
@@ -392,7 +455,10 @@ class EWithdrawCommand : CommandExecutor, PlayerSendable() {
     ): Boolean {
         //  Only players can use this command
         if (sender !is Player) {
-            sender.sendMessage("[EverCraft] Only a player may use this command")
+            sender.sendMessage(
+                PluginLocale.prefixError +
+                        PluginLocale.getLocalizedError("error.access.player_only")
+            )
             return false
         }
 
@@ -417,7 +483,10 @@ class EAddressCommand : CommandExecutor {
     ): Boolean {
         //  Only players can use this command
         if (sender !is Player) {
-            sender.sendMessage("[EverCraft] Only a player may use this command")
+            sender.sendMessage(
+                PluginLocale.prefixError +
+                        PluginLocale.getLocalizedError("error.access.player_only")
+            )
             return false
         }
 
@@ -449,26 +518,28 @@ class EAddressCommand : CommandExecutor {
                     listOf(publicKey)
                 )
             } ?: run {
-                player.sendMessage("${ChatColor.RED}[EverCraft] Error while creating address. Try again later")
+                player.sendMessage(
+                    PluginLocale.prefixError +
+                            PluginLocale.getLocalizedError("error.account.address.not_saved")
+                )
                 return false
             }
         }
 
         PluginSecureStorage.setPlayerAddress(player.uniqueId.toString(), address)
 
-        val message = TextComponent("[EverCraft] ").apply { this.color = net.md_5.bungee.api.ChatColor.AQUA }
-        message.addExtra(TextComponent("Your deposit address (click to copy): \n").apply {
-            this.color = net.md_5.bungee.api.ChatColor.WHITE
-        })
-        message.addExtra(TextComponent(address).apply {
-            this.color = net.md_5.bungee.api.ChatColor.GREEN
-            this.clickEvent = ClickEvent(
-                ClickEvent.Action.COPY_TO_CLIPBOARD,
-                address
-            )
-        })
-
-        player.sendMessage(message)
+        player.sendMessage(
+            TextComponent(PluginLocale.prefixRegular).apply {
+                this.addExtra(PluginLocale.getLocalizedMessage("account.address"))
+                this.addExtra(TextComponent(address).apply {
+                    this.color = net.md_5.bungee.api.ChatColor.GREEN
+                    this.clickEvent = ClickEvent(
+                        ClickEvent.Action.COPY_TO_CLIPBOARD,
+                        address
+                    )
+                })
+            }
+        )
 
         return true
     }
@@ -492,11 +563,23 @@ class EUserDataCommand : CommandExecutor {
 
 class EVersionCommand : CommandExecutor {
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
-        if (sender !is Player) return false
+        if (sender !is Player) {
+            sender.sendMessage(
+                PluginLocale.prefixError +
+                        PluginLocale.getLocalizedError("error.access.player_only")
+            )
+            return false
+        }
         val player: Player = sender
         player.sendMessage(
-            "${ChatColor.AQUA}[EverCraft] ${ChatColor.WHITE}Version " + Bukkit.getPluginManager()
-                .getPlugin("EverCraft")?.description?.version
+            PluginLocale.prefixRegular +
+                    PluginLocale.getLocalizedMessage(
+                        "version",
+                        arrayOf(
+                            Bukkit.getPluginManager()
+                                .getPlugin("EverCraft")?.description?.version ?: "0.0.0"
+                        )
+                    )
         )
 
         return true
@@ -523,6 +606,8 @@ interface IPlayerSendable {
 }
 
 open class PlayerSendable : IPlayerSendable {
+    protected val logger by lazy { LoggerFactory.getLogger(this::class.java) }
+
     /**
      * Universal withdraw/send method
      *
@@ -545,7 +630,7 @@ open class PlayerSendable : IPlayerSendable {
                     if (player.isOnline) {
                         player.sendMessage(
                             PluginLocale.prefixError +
-                                    PluginLocale.getLocalizedError("error.transfer.sender.no_address")
+                                    PluginLocale.getLocalizedError("error.account.no_address")
                         )
                     }
                     return false
@@ -556,7 +641,6 @@ open class PlayerSendable : IPlayerSendable {
             player.sendMessage(
                 PluginLocale.prefixError +
                         PluginLocale.getLocalizedError("error.args.amount.absent")
-                //"${ChatColor.RED}[EverCraft] You forgot to mention the withdrawal amount"
             )
             return false
         }
@@ -564,8 +648,7 @@ open class PlayerSendable : IPlayerSendable {
         if (args.size == 2) {
             player.sendMessage(
                 PluginLocale.prefixError +
-                        PluginLocale.getLocalizedError("error.args.password.absent")
-                //"${ChatColor.RED}[EverCraft] Please input your password"
+                        PluginLocale.getLocalizedError("error.args.password.missing")
             )
             return false
         }
@@ -600,7 +683,6 @@ open class PlayerSendable : IPlayerSendable {
                                     "error.transfer.receiver.not_registered",
                                     arrayOf(args[0])
                                 )
-                        //"${ChatColor.RED}[EverCraft] You have no address created. Please use the ${ChatColor.GREEN}/e_address${ChatColor.WHITE} command first"
                     )
                     return false
                 }
@@ -608,6 +690,8 @@ open class PlayerSendable : IPlayerSendable {
         }
 
         val amount = args[1]
+
+
         val password = args[2]
 
         GlobalScope.launch {
@@ -674,6 +758,14 @@ open class PlayerSendable : IPlayerSendable {
             return false
         }
 
+        if (amountBD <= BigDecimal(0)) {
+            from.sendMessage(
+                PluginLocale.prefixError +
+                        PluginLocale.getLocalizedError("error.args.amount.not_positive")
+            )
+            return false
+        }
+
         //  Check the amount is sufficient
         val fromBalanceNano = withContext(Dispatchers.Default) {
             EVER.getAddress(addressFrom)
@@ -682,7 +774,9 @@ open class PlayerSendable : IPlayerSendable {
         } ?: run {
             from.sendMessage(
                 PluginLocale.prefixError +
-                        PluginLocale.getLocalizedError("error.account.balance.unavailable")
+                        PluginLocale.getLocalizedError(
+                            "error.account.balance.unavailable"
+                        )
             )
             return false
         }
@@ -694,7 +788,10 @@ open class PlayerSendable : IPlayerSendable {
                 PluginLocale.prefixError +
                         PluginLocale.getLocalizedError(
                             "error.account.balance.insufficient",
-                            arrayOf(amount, PluginLocale.currencyName.toString())
+                            arrayOf(
+                                amount,
+                                PluginLocale.currencyName.toString()
+                            )
                         )
             )
 
@@ -734,7 +831,7 @@ open class PlayerSendable : IPlayerSendable {
                     0 -> PluginLocale.getLocalizedMessage("transfer.status.preparing")
                     else -> PluginLocale.getLocalizedMessage(
                         "transfer.status.preparing.creatures",
-                        arrayOf(it[Random.nextInt(0, it.lastIndex)])
+                        arrayOf(it[Random.nextInt(0, it.lastIndex)].trim())
                     )
                 }
             }
@@ -788,15 +885,25 @@ open class PlayerSendable : IPlayerSendable {
         }
 
         return if (withdrawalResult) {
-            val fromMessage = TextComponent(
-                PluginLocale.prefixRegular +
-                        PluginLocale.getLocalizedMessage(
-                            "transfer.status.success", arrayOf(
-                                amount,
-                                PluginLocale.currencyName.toString(),
-                                to?.name ?: addressTo
-                            )
+            val fromMessage = TextComponent(PluginLocale.prefixRegular).apply {
+                this.addExtra(
+                    PluginLocale.getLocalizedMessage(
+                        "transfer.status.success",
+                        arrayOf(
+                            amount,
+                            PluginLocale.currencyName.toString(),
+                            to?.name ?: addressTo
                         )
+                    )
+                )
+            }
+
+            logger.info(
+                "Sending $amount ${PluginLocale.currencyName} to ${to?.name ?: addressTo}\n" + arrayOf(
+                    amount,
+                    PluginLocale.currencyName.toString(),
+                    to?.name ?: addressTo
+                ).toList()
             )
 
             val toMessage = TextComponent(
@@ -818,19 +925,19 @@ open class PlayerSendable : IPlayerSendable {
                     val txHash = TextComponent(PluginLocale.getLocalizedMessage("transfer.tx_hash") + " ")
                     txHash.addExtra(
                         TextComponent(hash).apply {
-                        this.color = net.md_5.bungee.api.ChatColor.GREEN
-                        this.clickEvent = ClickEvent(
-                            ClickEvent.Action.COPY_TO_CLIPBOARD,
-                            hash
-                        )
-                    })
+                            this.color = net.md_5.bungee.api.ChatColor.GREEN
+                            this.clickEvent = ClickEvent(
+                                ClickEvent.Action.COPY_TO_CLIPBOARD,
+                                hash
+                            )
+                        })
                     fromMessage.addExtra(txHash)
                     toMessage.addExtra(txHash)
                 }
             }
 
-            from.sendMessage(fromMessage.text)
-            to?.sendMessage(toMessage.text)
+            from.sendMessage(fromMessage)
+            to?.sendMessage(toMessage)
 
             true
         } else {

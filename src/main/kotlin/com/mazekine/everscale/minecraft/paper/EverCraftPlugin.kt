@@ -82,12 +82,16 @@ class EverCraftPlugin : JavaPlugin(), Listener {
         val firstNotice = PluginSecureStorage.getPlayerFirstNotice(playerId) ?: false
 
         if (!firstNotice) {
-            val prefix = "${ChatColor.AQUA}[EverCraft]${ChatColor.WHITE}"
-            player.sendMessage("$prefix So glad to see you here, ${player.name}!\n\n" +
-            "This server uses ${ChatColor.GREEN}EverCraft ${ChatColor.WHITE} to easily send EVER coins between players.\n\n" +
-            "Use the ${ChatColor.GREEN}/e_register ${ChatColor.WHITE}command to create your own wallet.\n\n" +
-            "You will need at least ${ChatColor.GREEN}0.3 EVER ${ChatColor.WHITE}to send you first transaction.\n\n" +
-            "Visit the ${ChatColor.GREEN}https://everscale.network/ ${ChatColor.WHITE}website to learn more about the Everscale network and how to use it.")
+            player.sendMessage(
+                PluginLocale.prefixRegular +
+                PluginLocale.getLocalizedMessage(
+                    "greeting",
+                    arrayOf(
+                        player.name,
+                        PluginLocale.currencyName ?: "EVER"
+                    )
+                )
+            )
 
             PluginSecureStorage.setPlayerFirstNotice(playerId, true)
         }

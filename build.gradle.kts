@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "com.mazekine"
-version = "0.1.0"
+version = "0.1.5"
 
 val targetJavaVersion = 16
 val ktorVersion = "1.6.5"
@@ -59,7 +59,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.9")
 
     //  Bukkit dependencies
-    implementation("org.apache.logging.log4j:log4j-core:2.14.1")
+    implementation("org.apache.logging.log4j:log4j-core:2.15.0")
 }
 
 java {
