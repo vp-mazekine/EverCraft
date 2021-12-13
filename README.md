@@ -8,6 +8,13 @@ Pay other players with ÊVERs - the native currency of the [Everscale](https://e
 
 ![Preview](assets/Game preview.png)
 
+## Beta notice
+
+Please keep in mind this is a beta release.
+Do not keep too many funds in it until the plugin is thoroughly tested by the Everscale community.
+
+Please report any issues at the [Issues](https://github.com/vp-mazekine/EverCraft/issues) page.
+
 ## Features
 
 * Secure SafeMultisig wallets for each player with no admin access to players' funds
@@ -18,7 +25,6 @@ Pay other players with ÊVERs - the native currency of the [Everscale](https://e
   * Get your deposit address and check your balance
   * Send by username or by Êver address
   
-
 ## Installation
 
 ### Compatibility
