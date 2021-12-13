@@ -898,14 +898,6 @@ open class PlayerSendable : IPlayerSendable {
                 )
             }
 
-            logger.info(
-                "Sending $amount ${PluginLocale.currencyName} to ${to?.name ?: addressTo}\n" + arrayOf(
-                    amount,
-                    PluginLocale.currencyName.toString(),
-                    to?.name ?: addressTo
-                ).toList()
-            )
-
             val toMessage = TextComponent(
                 PluginLocale.prefixRegular +
                         PluginLocale.getLocalizedMessage(

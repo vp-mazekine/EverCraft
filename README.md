@@ -4,7 +4,9 @@
 
 Transform your gameplay to a real economy!
 
-Pay other players with ÊVERs - the native currency of the Everscale blockchain.
+Pay other players with ÊVERs - the native currency of the [Everscale](https://everscale.network?utm_campaign=EverCraft) blockchain.
+
+![Preview](assets/Game preview.png)
 
 ## Features
 
