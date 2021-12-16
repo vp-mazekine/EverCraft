@@ -892,7 +892,7 @@ open class PlayerSendable : IPlayerSendable {
                         arrayOf(
                             amount,
                             PluginLocale.currencyName.toString(),
-                            to?.name ?: addressTo
+                            to?.name ?: addressTo.mask(isAddress = true)
                         )
                     )
                 )
@@ -916,7 +916,7 @@ open class PlayerSendable : IPlayerSendable {
                 it.transactionHash?.let { hash ->
                     val txHash = TextComponent(PluginLocale.getLocalizedMessage("transfer.tx_hash") + " ")
                     txHash.addExtra(
-                        TextComponent(hash).apply {
+                        TextComponent(hash.mask()).apply {
                             this.color = net.md_5.bungee.api.ChatColor.GREEN
                             this.clickEvent = ClickEvent(
                                 ClickEvent.Action.COPY_TO_CLIPBOARD,
@@ -940,5 +940,26 @@ open class PlayerSendable : IPlayerSendable {
 
             false
         }
+    }
+
+    private fun String.mask(leave: Int = 6, delimiter: String = "...", isAddress: Boolean = false): String {
+        var result: String = this
+        var prefix: String = ""
+
+        if(isAddress) {
+            this.split(':').let {chunks ->
+                if(chunks.size > 1) {
+                    prefix = chunks[0] + ":"
+                }
+            }
+            result = this.drop(prefix.length)
+        }
+
+        if(result.length <= leave * 2) return (prefix + result)
+
+        return prefix +
+                result.substring(0, leave) +
+                delimiter +
+                result.substring(result.length - leave, result.length)
     }
 }

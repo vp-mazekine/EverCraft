@@ -7,8 +7,8 @@ group = "com.mazekine"
 version = "0.1.6"
 
 val targetJavaVersion = 16
-val ktorVersion = "1.6.5"
-val logbackVersion = "1.2.7"
+val ktorVersion = "1.6.6" //"1.6.5"
+val logbackVersion = "1.2.8" //"1.2.7"
 val tonClientVersion = "0.0.42"
 val jacksonVersion = "2.11.4"
 
@@ -59,7 +59,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.9")
 
     //  Bukkit dependencies
-    implementation("org.apache.logging.log4j:log4j-core:2.15.0")
+    implementation("org.apache.logging.log4j:log4j-core:2.16.0")
 }
 
 java {
