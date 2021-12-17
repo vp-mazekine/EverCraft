@@ -279,13 +279,15 @@ object EVER {
         value: String = "",
         type: TransactionSendOutputType = TransactionSendOutputType.Normal,
         bounce: Boolean = false,
-        id: UUID = UUID.randomUUID()
+        id: UUID = UUID.randomUUID(),
+        onFail: ((TransactionFailReason) -> Unit)? = null
     ): Triple<String, String?, String?>? {
         if(!apiIsConfigured()) {
             logger.error(
                 "[createTransaction] " +
                         PluginLocale.getLocalizedError("error.tonapi.not_configured", colored = false)
             )
+            onFail?.let { it(TransactionFailReason.EVER_API_NOT_CONFIGURED) }
             return null
         }
 
@@ -294,10 +296,12 @@ object EVER {
         value.toBigDecimalOrNull()?.let {
             if(it <= BigDecimal(0)) {
                 logger.error("[createTransaction] Transaction value must be positive")
+                onFail?.let { it(TransactionFailReason.TX_VALUE_NOT_POSITIVE) }
                 return null
             }
         } ?: run {
             logger.error("[createTransaction] Transaction value cannot be empty")
+            onFail?.let { it(TransactionFailReason.TX_VALUE_EMPTY) }
             return null
         }
 
@@ -325,16 +329,30 @@ object EVER {
             }
         } catch (e: ResponseException) {
             logger.error(
-                "[checkAddress] Error ${e.response.status.value}: ${e.response.status.description} when trying to send transaction of $value EVER from address $fromAddress to $toAddress\n" +
+                "[createTransaction] Error ${e.response.status.value}: ${e.response.status.description} when trying to send transaction of $value EVER from address $fromAddress to $toAddress\n" +
                         e.response.readText()
             )
+            onFail?.let { it(
+                when {
+                    e.response.readText().contains("Invalid value") -> TransactionFailReason.TX_VALUE_EMPTY
+                    e.response.readText().contains("Insufficient balance") -> TransactionFailReason.INSUFFICIENT_BALANCE
+                    else -> TransactionFailReason.OTHER
+                }
+            ) }
             return null
         } catch (e: Exception) {
             logger.error(
-                "[checkAddress] Error when trying to send transaction of $value EVER from address $fromAddress to $toAddress\n" +
+                "[createTransaction] Error when trying to send transaction of $value EVER from address $fromAddress to $toAddress\n" +
                         e.message + "\n" +
                         e.stackTrace.joinToString("\n")
             )
+            onFail?.let { it(
+                when {
+                    (e.message ?: "").contains("Invalid value") -> TransactionFailReason.TX_VALUE_EMPTY
+                    (e.message ?: "").contains("Insufficient balance") -> TransactionFailReason.INSUFFICIENT_BALANCE
+                    else -> TransactionFailReason.OTHER
+                }
+            ) }
             return null
         }
 
@@ -342,13 +360,21 @@ object EVER {
             logger.error(
                 "[checkAddress] Error while creating the transaction of $value EVER from address $fromAddress to $toAddress\nError message: ${response.errorMessage}"
             )
+            onFail?.let { it(
+                when {
+                    response.errorMessage.contains("Invalid value") -> TransactionFailReason.TX_VALUE_EMPTY
+                    response.errorMessage.contains("Insufficient balance") -> TransactionFailReason.INSUFFICIENT_BALANCE
+                    else -> TransactionFailReason.OTHER
+                }
+            ) }
             return null
         }
 
         if (response.data.aborted) {
             logger.error(
-                "[checkAddress] The transaction of $value EVER from address $fromAddress to $toAddress has been aborted"
+                "[createTransaction] The transaction of $value EVER from address $fromAddress to $toAddress has been aborted"
             )
+            onFail?.let { it(TransactionFailReason.TX_ABORTED) }
             return null
         }
 
@@ -500,7 +526,8 @@ object EVER {
         value: String = "",
         type: TransactionSendOutputType = TransactionSendOutputType.Normal,
         bounce: Boolean = false,
-        id: UUID = UUID.randomUUID()
+        id: UUID = UUID.randomUUID(),
+        onFail: ((TransactionFailReason) -> Unit)? = null
     ): TransactionToSign? {
         //  Get current transactions from multisig
         val oldMsigTxList = getSafeMultisigTransactions(fromAddress)
@@ -518,12 +545,13 @@ object EVER {
         //  SafeMultisig can have no more than 5 simultaneously initiated transactions
         if (oldMsigTxList.size == 5) {
             logger.warn("[EverCraft] Multisig $fromAddress is overcrowded with unfinished transactions. Please try again later")
+            onFail?.let { it(TransactionFailReason.TOO_MANY_UNFINISHED_TXS) }
             return null
         }
 
         //  Create transaction
         val txData = createTransaction(
-            fromAddress, toAddress, value, type, bounce, id
+            fromAddress, toAddress, value, type, bounce, id, onFail
         ) ?: return null
 
         val (txId, msgHash, txHash) = txData
@@ -540,6 +568,7 @@ object EVER {
                     logger.error(
                         "[createTransactionToSignOnMultisig] Unexpected answer from TON API\n$tx"
                     )
+                    onFail?.let { it(TransactionFailReason.OTHER_API_ERROR) }
                     return null
                 }
             }
@@ -554,7 +583,7 @@ object EVER {
         if(oldMsigTxList == newMsigTxList) return null
 
         //  Get the new transactions list
-        val diffMsigTxList = newMsigTxList - oldMsigTxList
+        val diffMsigTxList = newMsigTxList - oldMsigTxList.toSet()
 
         val msigTxId = diffMsigTxList
             .filter { it.value == value }
@@ -593,5 +622,16 @@ object EVER {
         } catch (e: Exception) {
             false
         }
+    }
+
+    enum class TransactionFailReason {
+        EVER_API_NOT_CONFIGURED,
+        OTHER_API_ERROR,
+        INSUFFICIENT_BALANCE,
+        TX_VALUE_EMPTY,
+        TX_VALUE_NOT_POSITIVE,
+        TX_ABORTED,
+        TOO_MANY_UNFINISHED_TXS,
+        OTHER
     }
 }

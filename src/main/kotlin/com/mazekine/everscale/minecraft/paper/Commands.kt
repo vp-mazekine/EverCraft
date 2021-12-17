@@ -653,7 +653,7 @@ open class PlayerSendable : IPlayerSendable {
             return false
         }
 
-        if (args.size > 3) {
+        if (args.isEmpty() || args.size > 3) {
             if (player.isOnline)
                 player.sendMessage(
                     PluginLocale.prefixError +
@@ -846,16 +846,37 @@ open class PlayerSendable : IPlayerSendable {
 
         //  Creaing transaction on multisig
         val tx = withContext(Dispatchers.Default) {
+            val onFail: ((EVER.TransactionFailReason) -> Unit) = {reason ->
+                val (errorMessage, args) =
+                when(reason) {
+                    EVER.TransactionFailReason.EVER_API_NOT_CONFIGURED -> Pair("error.tonapi.not_configured", null)
+                    EVER.TransactionFailReason.OTHER_API_ERROR -> Pair("error.tonapi.other", null)
+                    EVER.TransactionFailReason.INSUFFICIENT_BALANCE -> Pair("error.account.not_deployed", arrayOf<Any>(PluginLocale.currencyName ?: "ÊVER"))
+                    EVER.TransactionFailReason.TX_VALUE_EMPTY -> Pair("error.args.amount.not_numeric", null)
+                    EVER.TransactionFailReason.TX_VALUE_NOT_POSITIVE -> Pair("error.args.amount.not_positive", null)
+                    EVER.TransactionFailReason.TX_ABORTED -> Pair("transfer.status.error", null)
+                    EVER.TransactionFailReason.TOO_MANY_UNFINISHED_TXS -> Pair("error.transfer.tx.too_many_unfinished", null)
+                    EVER.TransactionFailReason.OTHER -> Pair("error.transfer.tx.uninit", null)
+                }
+                from.sendMessage(
+                    PluginLocale.prefixError +
+                            PluginLocale.getLocalizedError(errorMessage, args)
+                )
+            }
+
             EVER.createTransactionToSignOnMultisig(
                 fromAddress = addressFrom,
                 toAddress = addressTo,
-                value = (amountBD * BigDecimal(1_000_000_000)).setScale(0, RoundingMode.HALF_DOWN).toString()
+                value = (amountBD * BigDecimal(1_000_000_000)).setScale(0, RoundingMode.HALF_DOWN).toString(),
+                onFail = onFail
             )
         } ?: run {
+/*
             from.sendMessage(
                 PluginLocale.prefixError +
                         PluginLocale.getLocalizedError("error.transfer.tx.uninit")
             )
+*/
             return false
         }
 

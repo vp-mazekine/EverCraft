@@ -67,7 +67,12 @@ object PluginLocale {
     }
 
     fun getLocalizedError(code: String, args: Array<Any>? = null, colored: Boolean = true): String {
-        var rawMessage = locale.getString(code) ?: return code
+        var rawMessage = try {
+            locale.getString(code)
+        } catch (e: Exception) {
+            return code
+        }
+
         rawMessage = (if (colored) " &c" else "") + rawMessage
         rawMessage = ChatColor.translateAlternateColorCodes('&', rawMessage)
 
@@ -76,7 +81,12 @@ object PluginLocale {
     }
 
     fun getLocalizedMessage(code: String, args: Array<Any>? = null, colored: Boolean = true): String {
-        var rawMessage = locale.getString(code) ?: return code
+        var rawMessage = try {
+            locale.getString(code)
+        } catch (e: Exception) {
+            return code
+        }
+
         rawMessage = (if (colored) " &r" else "") + rawMessage
 
         return ChatColor.translateAlternateColorCodes(
