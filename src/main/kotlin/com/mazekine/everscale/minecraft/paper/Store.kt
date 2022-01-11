@@ -790,8 +790,6 @@ object Store : Listener {
 
             if(initialBalance < amount) return false
 
-            logger.info("Charging player ${player.name} for $amount coupons (available balance $initialBalance)")
-
             try {
                 var remainingPayment = amount
 
@@ -799,18 +797,14 @@ object Store : Listener {
                     .inventory
                     .forEach { stack ->
                         if (stack?.isStoreItem(Buttons.COUPON) == true) {
-                            logger.info("Found stack with ${stack.amount} coupons, remaining payment: $remainingPayment")
-
                             when {
                                 stack.amount <= remainingPayment -> {
                                     remainingPayment -= stack.amount
                                     stack.amount = 0
-                                    logger.info("Charged the full stack, new remaining payment: $remainingPayment")
                                 }
                                 stack.amount > remainingPayment -> {
                                     stack.amount -= remainingPayment
                                     remainingPayment = 0
-                                    logger.info("Charged the full payment, new stack balance: ${stack.amount}")
                                 }
                                 else -> {
                                     logger.error("[charge] Weird behavior: stack amount cannot be null")
