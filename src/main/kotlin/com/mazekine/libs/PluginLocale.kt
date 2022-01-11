@@ -1,5 +1,6 @@
 package com.mazekine.libs
 
+import net.kyori.adventure.text.Component
 import net.md_5.bungee.api.ChatColor
 import org.slf4j.LoggerFactory
 import java.text.MessageFormat
@@ -66,7 +67,7 @@ object PluginLocale {
         }
     }
 
-    fun getLocalizedError(code: String, args: Array<Any>? = null, colored: Boolean = true): String {
+    fun getLocalizedError(code: String, args: Array<out Any>? = null, colored: Boolean = true): String {
         var rawMessage = try {
             locale.getString(code)
         } catch (e: Exception) {
@@ -80,7 +81,17 @@ object PluginLocale {
             .format(args)
     }
 
-    fun getLocalizedMessage(code: String, args: Array<Any>? = null, colored: Boolean = true): String {
+    fun getLocalizedError(code: String, args: Array<out Any>? = null, colored: Boolean = true, prefix: Boolean = true): Component {
+        return Component.text(
+            if(prefix) prefixError ?: "" else ""
+        ).append(
+            Component.text(
+                getLocalizedError(code, args, colored)
+            )
+        )
+    }
+
+    fun getLocalizedMessage(code: String, args: Array<out Any>? = null, colored: Boolean = true): String {
         var rawMessage = try {
             locale.getString(code)
         } catch (e: Exception) {
@@ -93,6 +104,16 @@ object PluginLocale {
             '&',
             MessageFormat(rawMessage)
                 .format(args)
+        )
+    }
+
+    fun getLocalizedMessage(code: String, args: Array<out Any>? = null, colored: Boolean = true, prefix: Boolean = true): Component {
+        return Component.text(
+            if(prefix) prefixRegular ?: "" else ""
+        ).append(
+            Component.text(
+                getLocalizedMessage(code, args, colored)
+            )
         )
     }
 }

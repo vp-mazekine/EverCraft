@@ -151,3 +151,33 @@ class EWithdrawCommandSuggestion : TabCompleter {
         }
     }
 }
+
+class ECouponCommandSuggestion : TabCompleter {
+    override fun onTabComplete(
+        sender: CommandSender,
+        command: Command,
+        alias: String,
+        args: Array<out String>
+    ): MutableList<String>? {
+        if(sender !is Player) return null
+
+        val subcommandSuggestion: MutableList<String> = mutableListOf(
+            "price", "buy"
+        )
+        val amountSuggestion = mutableListOf("${ChatColor.GRAY}Number of coupons")
+        val pwdSuggestion = mutableListOf("${ChatColor.GRAY}Wallet password")
+        val unknownSuggestion = mutableListOf("${ChatColor.RED}Unknown argument")
+
+        return when(args.size) {
+            1 -> subcommandSuggestion
+            2 -> amountSuggestion
+            3 -> {
+                when(args[0]) {
+                    "buy" -> pwdSuggestion
+                    else  -> unknownSuggestion
+                }
+            }
+            else -> unknownSuggestion
+        }
+    }
+}

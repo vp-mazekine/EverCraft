@@ -4,10 +4,10 @@ plugins {
 }
 
 group = "com.mazekine"
-version = "0.1.7"
+version = "0.2.0"
 
 val targetJavaVersion = 16
-val ktorVersion = "1.6.6" //"1.6.5"
+val ktorVersion = "1.6.7" //"1.6.5"
 val logbackVersion = "1.2.8" //"1.2.7"
 val tonClientVersion = "0.0.42"
 val jacksonVersion = "2.11.4"
@@ -34,6 +34,8 @@ dependencies {
 
     //  JSON
     implementation("com.google.code.gson:gson:2.8.9")
+    implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:$jacksonVersion")
+    implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310:$jacksonVersion")
 
     //  Logging
     implementation("ch.qos.logback:logback-classic:$logbackVersion")

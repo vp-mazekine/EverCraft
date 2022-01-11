@@ -19,6 +19,13 @@ commands:
   e_balance:
     description: See the balance of your EVER wallet
     usage: /<command>
+  e_coupon:
+    description: Buy store coupons with EVERs
+    usage: |
+      Usage:
+        Learn coupon price: /<command>
+        How much N coupons will cost: /<command> price [number of coupons]
+        Buy coupon: /<command> buy [number of coupons] [password]
   e_new_password:
     description: Set a new password for your EVER wallet
     usage: "Usage: /<command> [old_password] [new_password] [repeat_new_password]"
@@ -40,6 +47,11 @@ commands:
     aliases:
       -  e_pay
       -  e_tip
+  e_store:
+    description: Buy resources with EVERs
+    usage: /<command>
+    aliases:
+      - e_buy
   e_withdraw:
     description: Withdraw EVERs to external address
     usage: |

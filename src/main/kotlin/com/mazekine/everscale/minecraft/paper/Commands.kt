@@ -2,20 +2,22 @@ package com.mazekine.everscale.minecraft.paper
 
 import com.google.gson.Gson
 import com.mazekine.everscale.EVER
+import com.mazekine.everscale.minecraft.paper.Store.isStoreItem
 import com.mazekine.everscale.models.AccountType
 import com.mazekine.libs.ChaCha20Poly1305
 import com.mazekine.libs.PluginLocale
 import com.mazekine.libs.PluginSecureStorage
 import ee.nx01.tonclient.abi.KeyPair
 import kotlinx.coroutines.*
-import net.md_5.bungee.api.chat.ClickEvent
-import net.md_5.bungee.api.chat.TextComponent
+import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.event.ClickEvent
+//import net.md_5.bungee.api.chat.ClickEvent
+//import net.md_5.bungee.api.chat.TextComponent
 import org.bukkit.Bukkit
 import org.bukkit.ChatColor
 import org.bukkit.command.Command
 import org.bukkit.command.CommandExecutor
 import org.bukkit.command.CommandSender
-import org.bukkit.command.PluginCommandYamlParser
 import org.bukkit.entity.Player
 import org.slf4j.LoggerFactory
 import java.math.BigDecimal
@@ -38,8 +40,7 @@ class ESendCommand : CommandExecutor, PlayerSendable() {
         //  Only players can use this command
         if (sender !is Player) {
             sender.sendMessage(
-                PluginLocale.prefixError +
-                        PluginLocale.getLocalizedError("error.access.player_only")
+                PluginLocale.getLocalizedError("error.access.player_only", prefix = true)
             )
             return false
         }
@@ -56,7 +57,6 @@ class ESendCommand : CommandExecutor, PlayerSendable() {
 
         return true
     }
-
 }
 
 /**
@@ -64,7 +64,7 @@ class ESendCommand : CommandExecutor, PlayerSendable() {
  *
  * @constructor Create empty E p k command
  */
-class EPKCommand : CommandExecutor {
+class EPKCommand : CommandExecutor, ICommunicative {
     override fun onCommand(
         sender: CommandSender,
         command: Command,
@@ -74,8 +74,7 @@ class EPKCommand : CommandExecutor {
         //  Only players can use this command
         if (sender !is Player) {
             sender.sendMessage(
-                PluginLocale.prefixError +
-                        PluginLocale.getLocalizedError("error.access.player_only")
+                PluginLocale.getLocalizedError("error.access.player_only", prefix = true)
             )
             return false
         }
@@ -83,18 +82,12 @@ class EPKCommand : CommandExecutor {
         val player: Player = sender
 
         if (args.isEmpty()) {
-            player.sendMessage(
-                PluginLocale.prefixError +
-                        PluginLocale.getLocalizedError("error.args.password.missing")
-            )
+            _onFail(player, "error.args.password.missing")
             return false
         }
 
         if (args.size > 1) {
-            player.sendMessage(
-                PluginLocale.prefixError +
-                        PluginLocale.getLocalizedError("error.args.wrong_number", arrayOf(1))
-            )
+            _onFail(player, "error.args.wrong_number", arrayOf(1))
             return false
         }
 
@@ -102,47 +95,38 @@ class EPKCommand : CommandExecutor {
 
         //  If the player hasn't created a PK yet
         if (encryptedPk == null) {
-            player.sendMessage(
-                PluginLocale.prefixError +
-                        PluginLocale.getLocalizedError("error.account.not_created")
-            )
+            _onFail(player, "error.account.not_created")
             return true
         }
 
         val pk = try {
             ChaCha20Poly1305().decryptStringWithPassword(encryptedPk, args[0])
         } catch (e: Exception) {
-            player.sendMessage(
-                PluginLocale.prefixError +
-                        PluginLocale.getLocalizedError("error.args.password.wrong")
-            )
+            _onFail(player, "error.args.password.wrong")
             return false
         }
 
         player.sendMessage(
-            TextComponent(PluginLocale.prefixRegular).apply {
-                this.addExtra(
-                    PluginLocale.getLocalizedMessage("pk.display.1")
-                )
-                this.addExtra(
-                    TextComponent(pk).apply {
-                        this.clickEvent = ClickEvent(
-                            ClickEvent.Action.COPY_TO_CLIPBOARD,
-                            pk
+            PluginLocale.getLocalizedMessage("pk.display.1", prefix = true).apply {
+                this.append(
+                    Component.text("${ChatColor.GREEN}$pk").apply {
+                        this.clickEvent(
+                            ClickEvent.clickEvent(
+                                ClickEvent.Action.COPY_TO_CLIPBOARD,
+                                pk
+                            )
                         )
-                        this.color = net.md_5.bungee.api.ChatColor.GREEN
                     }
                 )
-                this.addExtra("\n")
-                this.addExtra(
-                    PluginLocale.getLocalizedError("pk.display.2")
+                this.append(Component.text("\n"))
+                this.append(
+                    PluginLocale.getLocalizedError("pk.display.2", prefix = true)
                 )
             }
         )
 
         return true
     }
-
 }
 
 /**
@@ -150,7 +134,7 @@ class EPKCommand : CommandExecutor {
  *
  * @constructor Create empty E register command
  */
-class ERegisterCommand : CommandExecutor {
+class ERegisterCommand : CommandExecutor, ICommunicative {
     override fun onCommand(
         sender: CommandSender,
         command: Command,
@@ -160,8 +144,7 @@ class ERegisterCommand : CommandExecutor {
         //  Only players can use this command
         if (sender !is Player) {
             sender.sendMessage(
-                PluginLocale.prefixError +
-                        PluginLocale.getLocalizedError("error.access.player_only")
+                PluginLocale.getLocalizedError("error.access.player_only", prefix = false)
             )
             return false
         }
@@ -170,17 +153,11 @@ class ERegisterCommand : CommandExecutor {
 
         return when (args.size) {
             0 -> {
-                player.sendMessage(
-                    PluginLocale.prefixError +
-                            PluginLocale.getLocalizedError("error.args.password.missing")
-                )
+                _onFail(player, "error.args.password.missing")
                 false
             }
             1 -> {
-                player.sendMessage(
-                    PluginLocale.prefixError +
-                            PluginLocale.getLocalizedError("error.args.password.repeat")
-                )
+                _onFail(player, "error.args.password.repeat")
                 false
             }
             2 -> {
@@ -191,10 +168,7 @@ class ERegisterCommand : CommandExecutor {
                     )
 
                     val encryptedPrivateKey = PluginSecureStorage.getPrivateKey(player.uniqueId.toString()) ?: run {
-                        player.sendMessage(
-                            PluginLocale.prefixError +
-                                    PluginLocale.getLocalizedError("error.account.pk.not_saved")
-                        )
+                        _onFail(player, "error.account.pk.not_saved")
                         return false
                     }
                     val privateKey = ChaCha20Poly1305().decryptStringWithPassword(encryptedPrivateKey, args[0])
@@ -208,51 +182,37 @@ class ERegisterCommand : CommandExecutor {
                             listOf(publicKey)
                         )
                     } ?: run {
-                        player.sendMessage(
-                            PluginLocale.prefixError +
-                                    PluginLocale.getLocalizedError("error.account.address.not_saved")
-                        )
+                        _onFail(player, "error.account.address.not_saved")
                         return false
                     }
 
                     PluginSecureStorage.setPlayerAddress(player.uniqueId.toString(), address)
 
+                    //  TODO:   Check that works after refactoring
                     player.sendMessage(
-                        TextComponent(PluginLocale.prefixRegular).apply {
-                            this.addExtra(
-                                TextComponent(PluginLocale.getLocalizedMessage("account.status.success"))
-                            )
-                            this.addExtra(
-                                TextComponent(address).apply {
-                                    this.clickEvent = ClickEvent(
+                        PluginLocale.getLocalizedMessage("account.status.success", prefix = true)
+                            .append(
+                                Component.text("${ChatColor.GREEN.asBungee()}$address").clickEvent(
+                                    ClickEvent.clickEvent(
                                         ClickEvent.Action.COPY_TO_CLIPBOARD,
                                         address
                                     )
-                                    this.color = net.md_5.bungee.api.ChatColor.GREEN
-                                }
+                                )
                             )
-                        }
                     )
 
                     true
                 } else {
-                    player.sendMessage(
-                        PluginLocale.prefixError +
-                                PluginLocale.getLocalizedError("error.args.password.no_match")
-                    )
+                    _onFail(player, "error.args.password.no_match")
                     false
                 }
             }
             else -> {
-                player.sendMessage(
-                    PluginLocale.prefixError +
-                            PluginLocale.getLocalizedError("error.args.wrong_number", arrayOf(2))
-                )
+                _onFail(player, "error.args.wrong_number", arrayOf(2))
                 false
             }
         }
     }
-
 }
 
 /**
@@ -260,7 +220,7 @@ class ERegisterCommand : CommandExecutor {
  *
  * @constructor Create empty E new password command
  */
-class ENewPasswordCommand : CommandExecutor {
+class ENewPasswordCommand : CommandExecutor, ICommunicative {
     override fun onCommand(
         sender: CommandSender,
         command: Command,
@@ -270,8 +230,7 @@ class ENewPasswordCommand : CommandExecutor {
         //  Only players can use this command
         if (sender !is Player) {
             sender.sendMessage(
-                PluginLocale.prefixError +
-                        PluginLocale.getLocalizedError("error.access.player_only")
+                PluginLocale.getLocalizedError("error.access.player_only", prefix = true)
             )
             return false
         }
@@ -280,24 +239,15 @@ class ENewPasswordCommand : CommandExecutor {
 
         return when (args.size) {
             0 -> {
-                player.sendMessage(
-                    PluginLocale.prefixError +
-                            PluginLocale.getLocalizedError("error.args.password.missing.old")
-                )
+                _onFail(player, "error.args.password.missing.old")
                 false
             }
             1 -> {
-                player.sendMessage(
-                    PluginLocale.prefixError +
-                            PluginLocale.getLocalizedError("error.args.password.missing.new")
-                )
+                _onFail(player, "error.args.password.missing.new")
                 false
             }
             2 -> {
-                player.sendMessage(
-                    PluginLocale.prefixError +
-                            PluginLocale.getLocalizedError("error.args.password.repeat.new")
-                )
+                _onFail(player, "error.args.password.repeat.new")
                 false
             }
             3 -> {
@@ -305,20 +255,14 @@ class ENewPasswordCommand : CommandExecutor {
 
                 //  If the player hasn't created a PK yet
                 if (encryptedPk == null) {
-                    player.sendMessage(
-                        PluginLocale.prefixError +
-                                PluginLocale.getLocalizedError("error.account.not_created")
-                    )
+                    _onFail(player, "error.account.not_created")
                     return true
                 }
 
                 val pk = try {
                     ChaCha20Poly1305().decryptStringWithPassword(encryptedPk, args[0])
                 } catch (e: Exception) {
-                    player.sendMessage(
-                        PluginLocale.prefixError +
-                                PluginLocale.getLocalizedError("error.args.password.wrong")
-                    )
+                    _onFail(player, "error.args.password.wrong")
                     return false
                 }
 
@@ -329,29 +273,19 @@ class ENewPasswordCommand : CommandExecutor {
                         pk
                     )
 
-                    player.sendMessage(
-                        PluginLocale.prefixRegular +
-                                PluginLocale.getLocalizedMessage("password.status.success.new")
-                    )
+                    _onSuccess(player, "password.status.success.new")
                     true
                 } else {
-                    player.sendMessage(
-                        PluginLocale.prefixError +
-                                PluginLocale.getLocalizedError("error.args.password.no_match")
-                    )
+                    _onFail(player, "error.args.password.no_match")
                     false
                 }
             }
             else -> {
-                player.sendMessage(
-                    PluginLocale.prefixError +
-                            PluginLocale.getLocalizedError("error.args.wrong_number", arrayOf(3))
-                )
+                _onFail(player, "error.args.wrong_number", arrayOf(3))
                 false
             }
         }
     }
-
 }
 
 /**
@@ -359,7 +293,7 @@ class ENewPasswordCommand : CommandExecutor {
  *
  * @constructor Create empty E balance command
  */
-class EBalanceCommand : CommandExecutor {
+class EBalanceCommand : CommandExecutor, ICommunicative {
     override fun onCommand(
         sender: CommandSender,
         command: Command,
@@ -369,8 +303,7 @@ class EBalanceCommand : CommandExecutor {
         //  Only players can use this command
         if (sender !is Player) {
             sender.sendMessage(
-                PluginLocale.prefixError +
-                        PluginLocale.getLocalizedError("error.access.player_only")
+                PluginLocale.getLocalizedError("error.access.player_only", prefix = true)
             )
             return false
         }
@@ -378,20 +311,14 @@ class EBalanceCommand : CommandExecutor {
         val player: Player = sender
 
         if (PluginSecureStorage.getPrivateKey(player.uniqueId.toString()) == null) {
-            sender.sendMessage(
-                PluginLocale.prefixError +
-                        PluginLocale.getLocalizedError("error.account.not_created")
-            )
+            _onFail(player, "error.account.not_created")
             return false
         }
 
         val address = PluginSecureStorage
             .findAddressByPlayerId(player.uniqueId.toString())
             ?: run {
-                sender.sendMessage(
-                    PluginLocale.prefixError +
-                            PluginLocale.getLocalizedError("error.account.no_address")
-                )
+                _onFail(player, "error.account.no_address")
                 return false
             }
 
@@ -400,10 +327,7 @@ class EBalanceCommand : CommandExecutor {
                 val playerBalanceNano = runBlocking {
                     EVER.getAddress(address)?.balance?.toBigDecimalOrNull()
                 } ?: run {
-                    player.sendMessage(
-                        PluginLocale.prefixError +
-                                PluginLocale.getLocalizedError("error.account.balance.unavailable")
-                    )
+                    _onFail(player, "error.account.balance.unavailable")
                     return false
                 }
 
@@ -411,29 +335,17 @@ class EBalanceCommand : CommandExecutor {
                     .stripTrailingZeros()
                     .toPlainString()
 
-                player.sendMessage(
-                    TextComponent(PluginLocale.prefixRegular).apply {
-                        this.addExtra(
-                            TextComponent(
-                                PluginLocale.getLocalizedMessage(
-                                    "account.balance",
-                                    arrayOf(
-                                        playerBalance,
-                                        PluginLocale.currencyName.toString()
-                                    )
-                                )
-                            )
-                        )
-                    }
+                _onSuccess(
+                    player, "account.balance",
+                    arrayOf(
+                        playerBalance,
+                        PluginLocale.currencyName.toString()
+                    )
                 )
-
                 true
             }
             else -> {
-                player.sendMessage(
-                    PluginLocale.prefixError +
-                            PluginLocale.getLocalizedError("error.args.wrong_count")
-                )
+                _onFail(player, "error.args.wrong_count")
                 false
             }
         }
@@ -474,7 +386,7 @@ class EWithdrawCommand : CommandExecutor, PlayerSendable() {
     }
 }
 
-class EAddressCommand : CommandExecutor {
+class EAddressCommand : CommandExecutor, ICommunicative {
     override fun onCommand(
         sender: CommandSender,
         command: Command,
@@ -484,8 +396,7 @@ class EAddressCommand : CommandExecutor {
         //  Only players can use this command
         if (sender !is Player) {
             sender.sendMessage(
-                PluginLocale.prefixError +
-                        PluginLocale.getLocalizedError("error.access.player_only")
+                PluginLocale.getLocalizedError("error.access.player_only", prefix = true)
             )
             return false
         }
@@ -494,7 +405,7 @@ class EAddressCommand : CommandExecutor {
 
         val encryptedPrivateKey = PluginSecureStorage.getPrivateKey(player.uniqueId.toString())
         if (encryptedPrivateKey == null) {
-            sender.sendMessage("${ChatColor.RED}[EverCraft] You haven't registered yet.\nPlease use the /e_register command to create a new account.")
+            _onFail(player, "error.account.not_created")
             return false
         }
 
@@ -503,7 +414,7 @@ class EAddressCommand : CommandExecutor {
 
         if (address == null) {
             if (args.isEmpty()) {
-                sender.sendMessage("${ChatColor.RED}[EverCraft] You have no earlier created addresses. To create one, please input the password after the command name.")
+                _onFail(player, "error.account.no_address")
                 return false
             }
 
@@ -518,32 +429,29 @@ class EAddressCommand : CommandExecutor {
                     listOf(publicKey)
                 )
             } ?: run {
-                player.sendMessage(
-                    PluginLocale.prefixError +
-                            PluginLocale.getLocalizedError("error.account.address.not_saved")
-                )
+                _onFail(player, "error.account.address.not_saved")
                 return false
             }
         }
 
         PluginSecureStorage.setPlayerAddress(player.uniqueId.toString(), address)
 
-        player.sendMessage(
-            TextComponent(PluginLocale.prefixRegular).apply {
-                this.addExtra(PluginLocale.getLocalizedMessage("account.address"))
-                this.addExtra(TextComponent(address).apply {
-                    this.color = net.md_5.bungee.api.ChatColor.GREEN
-                    this.clickEvent = ClickEvent(
-                        ClickEvent.Action.COPY_TO_CLIPBOARD,
-                        address
-                    )
-                })
-            }
+        _onUpdate(
+            player,
+            PluginLocale.getLocalizedMessage("account.address", prefix = true)
+                .append(
+                    Component.text("${ChatColor.GREEN.asBungee()}$address")
+                        .clickEvent(
+                            ClickEvent.clickEvent(
+                                ClickEvent.Action.COPY_TO_CLIPBOARD,
+                                address
+                            )
+                        )
+                )
         )
 
         return true
     }
-
 }
 
 class EUserDataCommand : CommandExecutor {
@@ -561,36 +469,219 @@ class EUserDataCommand : CommandExecutor {
 
 }
 
-class EVersionCommand : CommandExecutor {
+class EVersionCommand : CommandExecutor, ICommunicative {
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
         if (sender !is Player) {
             sender.sendMessage(
-                PluginLocale.prefixError +
-                        PluginLocale.getLocalizedError("error.access.player_only")
+                PluginLocale.getLocalizedError("error.access.player_only", prefix = true)
             )
             return false
         }
+
         val player: Player = sender
-        player.sendMessage(
-            PluginLocale.prefixRegular +
-                    PluginLocale.getLocalizedMessage(
-                        "version",
-                        arrayOf(
-                            Bukkit.getPluginManager()
-                                .getPlugin("EverCraft")?.description?.version ?: "0.0.0"
-                        )
-                    )
+        _onUpdate(
+            player,
+            PluginLocale.getLocalizedMessage(
+                "version",
+                arrayOf(
+                    Bukkit.getPluginManager()
+                        .getPlugin("EverCraft")?.description?.version ?: "0.0.0"
+                ),
+                prefix = true
+            )
         )
 
         return true
     }
 }
 
-interface IPlayerSendable {
+class EStoreCommand : CommandExecutor {
+    override fun onCommand(
+        sender: CommandSender,
+        command: Command,
+        label: String,
+        args: Array<out String>
+    ): Boolean {
+        //  Only players can use this command
+        if (sender !is Player) {
+            sender.sendMessage(
+                PluginLocale.getLocalizedError("error.access.player_only", prefix = true)
+            )
+            return false
+        }
+
+        val player: Player = sender
+
+        Store.open(player)
+
+        return true
+    }
+}
+
+class ECouponCommand : CommandExecutor, PlayerSendable() {
+
+    override fun onCommand(
+        sender: CommandSender,
+        command: Command,
+        label: String,
+        args: Array<out String>
+    ): Boolean {
+        if (Store.storeWallet == null) {
+            sender.sendMessage(
+                PluginLocale.getLocalizedError("error.store.not_configured", prefix = true)
+            )
+            return false
+        }
+
+        //  Only players can use this command
+        if (sender !is Player) {
+            sender.sendMessage(
+                PluginLocale.getLocalizedError("error.access.player_only", prefix = true)
+            )
+            return false
+        }
+
+        val player: Player = sender
+
+        //  If no args specified, just output the coupon price
+        if (args.isEmpty()) {
+            _onSuccess(
+                player, "store.coupon.price",
+                arrayOf(Store.couponPrice, PluginLocale.currencyName ?: "EVER")
+            )
+            return true
+        }
+
+        val subcommand = args[0].lowercase()
+        val amount = if (args.size > 1) args[1].toIntOrNull() else null
+        val password = if (args.size > 2) args[2] else null
+
+        //  If subcommand is unknown, output error
+        if (subcommand != "price" && subcommand != "buy") {
+            _onFail(player, "error.args.unknown")
+            return false
+        }
+
+        //  If amount is specified, it must be positive
+        amount?.let {
+            if (it <= 0) {
+                _onFail(player, "error.args.amount.not_positive")
+                logger.info("Amount: $amount")
+                return false
+            }
+        }
+
+        //  Output coupon(s) price
+        if (subcommand == "price") {
+            when (amount) {
+                null ->     //  A single coupon
+                    _onSuccess(
+                        player, "store.coupon.price",
+                        arrayOf(
+                            Store.couponPrice,
+                            PluginLocale.currencyName ?: "EVER"
+                        )
+                    )
+                else ->     //  Multiple coupons
+                    _onSuccess(
+                        player, "store.coupon.price.multiple",
+                        arrayOf(
+                            amount.toString(),
+                            amount.toBigDecimal() * Store.couponPrice,
+                            PluginLocale.currencyName ?: "EVER"
+                        )
+                    )
+            }
+
+            return true
+        }
+
+        if (subcommand == "buy") {
+            //  Amount must exist and be valid
+            if (amount == null) {
+                _onFail(player, if (args.size == 1) "error.args.amount.absent" else "error.args.amount.not_numeric")
+                return false
+            }
+
+            //  Password must exist
+            if (password == null && !Store.couponPrice.equals(0)) {
+                _onFail(player, "error.args.password.missing")
+                return false
+            }
+        }
+
+        val onSuccess: (Player?, String?, Array<out Any>?) -> Unit = { p, m, a ->
+            p?.let {
+                //  Try to find existing stack of coupons to add to it
+                var delivered = false
+                run delivery@{
+                    it.inventory.forEach { stack ->
+                        if (stack?.isStoreItem(Store.Buttons.COUPON) == true) {
+                            stack.add(amount!!)
+                            delivered = true
+                            return@delivery
+                        }
+                    }
+                }
+
+                //  Create a new stack otherwise
+                if(!delivered) {
+                    it.inventory.addItem(
+                        Store.coupon.asQuantity(amount!!)
+                    )
+                }
+
+                if (m != null) _onSuccess(it, m, a)
+                _onUpdate(
+                    it,
+                    PluginLocale.getLocalizedMessage("store.coupon.purchased", arrayOf(amount!!), prefix = true)
+                )
+            } ?: run {
+                logger.warn("Ghost purchase in the store: cannot identify purchaser")
+            }
+        }
+
+        val onFail: (Player?, String?, Array<out Any>?) -> Unit = { p, m, a ->
+            p?.let {
+                if(m != null) _onFail(p, m, a)
+                _onFail(
+                    it,
+                    PluginLocale.getLocalizedError("error.store.purchase_error")
+                )
+            }
+        }
+
+        if(Store.couponPrice == BigDecimal(0)) {
+            onSuccess(player, null, null)
+        } else {
+            withdraw(
+                player,
+                IPlayerSendable.SendType.Withdraw,
+                arrayOf(
+                    Store.storeWallet!!,
+                    (amount!!.toBigDecimal() * Store.couponPrice).toPlainString(),
+                    password!!
+                ),
+                onSuccess = onSuccess,
+                onFail = onFail,
+                isStoreTx = true
+            )
+        }
+
+        return true
+    }
+
+}
+
+interface IPlayerSendable : ICommunicative {
     fun withdraw(
         player: Player,
         command: SendType,
-        args: Array<out String>
+        args: Array<out String>,
+        onSuccess: ((Player?, String?, Array<out Any>?) -> Unit)? = ::_onSuccess,
+        onFail: ((Player?, String?, Array<out Any>?) -> Unit)? = ::_onFail,
+        onUpdate: ((Player?, Component?) -> Unit)? = ::_onUpdate,
+        isStoreTx: Boolean = false
     ): Boolean
 
     suspend fun withdraw(
@@ -599,10 +690,40 @@ interface IPlayerSendable {
         amount: String,
         password: String,
         from: Player,
-        to: Player? = null
+        to: Player? = null,
+        onSuccess: ((Player?, String?, Array<out Any>?) -> Unit)? = ::_onSuccess,
+        onFail: ((Player?, String?, Array<out Any>?) -> Unit)? = ::_onFail,
+        onUpdate: ((Player?, Component?) -> Unit)? = ::_onUpdate,
+        isStoreTx: Boolean = false
     ): Boolean
 
     enum class SendType { Send, Withdraw }
+}
+
+interface ICommunicative {
+    fun _onSuccess(player: Player? = null, message: String? = null, args: Array<out Any>? = null) {
+        player?.let { p ->
+            message?.let { m ->
+                if (p.isOnline) p.sendMessage(PluginLocale.getLocalizedMessage(m, args, prefix = true))
+            }
+        }
+    }
+
+    fun _onUpdate(player: Player? = null, message: Component? = null) {
+        player?.let { p ->
+            message?.let { m ->
+                if (p.isOnline) p.sendMessage(message)
+            }
+        }
+    }
+
+    fun _onFail(player: Player? = null, message: String? = null, args: Array<out Any>? = null) {
+        player?.let { p ->
+            message?.let { m ->
+                if (p.isOnline) p.sendMessage(PluginLocale.getLocalizedError(m, args, prefix = true))
+            }
+        }
+    }
 }
 
 open class PlayerSendable : IPlayerSendable {
@@ -620,45 +741,34 @@ open class PlayerSendable : IPlayerSendable {
     override fun withdraw(
         player: Player,
         command: IPlayerSendable.SendType,
-        args: Array<out String>
+        args: Array<out String>,
+        onSuccess: ((Player?, String?, Array<out Any>?) -> Unit)?,
+        onFail: ((Player?, String?, Array<out Any>?) -> Unit)?,
+        onUpdate: ((Player?, Component?) -> Unit)?,
+        isStoreTx: Boolean
     ): Boolean {
         //  First check if the sender has the address created
         val addressFrom: String =
             PluginSecureStorage
                 .findAddressByPlayerId(player.uniqueId.toString())
                 ?: run {
-                    if (player.isOnline) {
-                        player.sendMessage(
-                            PluginLocale.prefixError +
-                                    PluginLocale.getLocalizedError("error.account.no_address")
-                        )
-                    }
+                    if (onFail != null) onFail(player, "error.account.no_address", null)
                     return false
                 }
 
         //  Check arguments quantity
         if (args.size == 1) {
-            player.sendMessage(
-                PluginLocale.prefixError +
-                        PluginLocale.getLocalizedError("error.args.amount.absent")
-            )
+            if (onFail != null) onFail(player, "error.args.amount.absent", null)
             return false
         }
 
         if (args.size == 2) {
-            player.sendMessage(
-                PluginLocale.prefixError +
-                        PluginLocale.getLocalizedError("error.args.password.missing")
-            )
+            if (onFail != null) onFail(player, "error.args.password.missing", null)
             return false
         }
 
         if (args.isEmpty() || args.size > 3) {
-            if (player.isOnline)
-                player.sendMessage(
-                    PluginLocale.prefixError +
-                            PluginLocale.getLocalizedError("error.args.wrong_number", arrayOf(3))
-                )
+            if (onFail != null) onFail(player, "error.args.wrong_number", arrayOf(3))
             return false
         }
 
@@ -668,30 +778,19 @@ open class PlayerSendable : IPlayerSendable {
             IPlayerSendable.SendType.Send -> {
                 //  Check if player exists
                 receiver = Bukkit.getPlayerExact(args[0]) ?: run {
-                    player.sendMessage(
-                        PluginLocale.prefixError +
-                                PluginLocale.getLocalizedError("error.args.player.absent", arrayOf(args[0]))
-                    )
+                    if (onFail != null) onFail(player, "error.args.player.absent", arrayOf(args[0]))
                     return false
                 }
 
                 //  Check if the receiver has created an account
                 PluginSecureStorage.findAddressByPlayerId(receiver.uniqueId.toString()) ?: run {
-                    player.sendMessage(
-                        PluginLocale.prefixError +
-                                PluginLocale.getLocalizedError(
-                                    "error.transfer.receiver.not_registered",
-                                    arrayOf(args[0])
-                                )
-                    )
+                    if (onFail != null) onFail(player, "error.transfer.receiver.not_registered", arrayOf(args[0]))
                     return false
                 }
             }
         }
 
         val amount = args[1]
-
-
         val password = args[2]
 
         GlobalScope.launch {
@@ -701,7 +800,10 @@ open class PlayerSendable : IPlayerSendable {
                 amount,
                 password,
                 player,
-                receiver
+                receiver,
+                onSuccess,
+                onFail,
+                isStoreTx = isStoreTx
             )
         }
 
@@ -714,14 +816,15 @@ open class PlayerSendable : IPlayerSendable {
         amount: String,
         password: String,
         from: Player,
-        to: Player?
+        to: Player?,
+        onSuccess: ((Player?, String?, Array<out Any>?) -> Unit)?,
+        onFail: ((Player?, String?, Array<out Any>?) -> Unit)?,
+        onUpdate: ((Player?, Component?) -> Unit)?,
+        isStoreTx: Boolean
     ): Boolean {
         //  Check that addresses don't match
         if (addressFrom == addressTo) {
-            from.sendMessage(
-                PluginLocale.prefixError +
-                        PluginLocale.getLocalizedError("error.transfer.receiver.self")
-            )
+            if (onFail != null) onFail(from, "error.transfer.receiver.self", null)
             return false
         }
 
@@ -730,10 +833,7 @@ open class PlayerSendable : IPlayerSendable {
             withContext(Dispatchers.Default) { EVER.checkAddress(addressFrom) }
 
         if (addressFromCorrect != true) {
-            from.sendMessage(
-                PluginLocale.prefixError +
-                        PluginLocale.getLocalizedError("error.account.address.invalid")
-            )
+            if (onFail != null) onFail(from, "error.account.address.invalid", null)
             return false
         }
 
@@ -742,27 +842,18 @@ open class PlayerSendable : IPlayerSendable {
             withContext(Dispatchers.Default) { EVER.checkAddress(addressTo) }
 
         if (addressToCorrect != true) {
-            from.sendMessage(
-                PluginLocale.prefixError +
-                        PluginLocale.getLocalizedError("error.args.address.invalid")
-            )
+            if (onFail != null) onFail(from, "error.args.address.invalid", null)
             return false
         }
 
         //  Validate the amount
         val amountBD = amount.toBigDecimalOrNull() ?: run {
-            from.sendMessage(
-                PluginLocale.prefixError +
-                        PluginLocale.getLocalizedError("error.args.amount.not_numeric")
-            )
+            if (onFail != null) onFail(from, "error.args.amount.not_numeric", null)
             return false
         }
 
         if (amountBD <= BigDecimal(0)) {
-            from.sendMessage(
-                PluginLocale.prefixError +
-                        PluginLocale.getLocalizedError("error.args.amount.not_positive")
-            )
+            if (onFail != null) onFail(from, "error.args.amount.not_positive", null)
             return false
         }
 
@@ -772,54 +863,39 @@ open class PlayerSendable : IPlayerSendable {
                 ?.balance
                 ?.toBigDecimalOrNull()
         } ?: run {
-            from.sendMessage(
-                PluginLocale.prefixError +
-                        PluginLocale.getLocalizedError(
-                            "error.account.balance.unavailable"
-                        )
-            )
+            if (onFail != null) onFail(from, "error.account.balance.unavailable", null)
             return false
         }
 
         val fromBalance = fromBalanceNano.setScale(4, RoundingMode.HALF_DOWN) / BigDecimal(1_000_000_000)
 
         if (amountBD > fromBalance) {
-            from.sendMessage(
-                PluginLocale.prefixError +
-                        PluginLocale.getLocalizedError(
-                            "error.account.balance.insufficient",
-                            arrayOf(
-                                amount,
-                                PluginLocale.currencyName.toString()
-                            )
-                        )
+            if (onFail != null) onFail(
+                from,
+                "error.account.balance.insufficient",
+                arrayOf(
+                    amount,
+                    PluginLocale.currencyName ?: "EVER"
+                )
             )
-
             return false
         }
 
         //  Check that private key exists and accessible
         val encryptedPrivateKey = PluginSecureStorage.getPrivateKey(from.uniqueId.toString())
             ?: run {
-                from.sendMessage(
-                    PluginLocale.prefixError +
-                            PluginLocale.getLocalizedError("error.account.not_created")
-                )
+                if (onFail != null) onFail(from, "error.account.not_created", null)
                 return false
             }
 
-        from.sendMessage(
-            PluginLocale.prefixRegular +
-                    PluginLocale.getLocalizedMessage("transfer.status.unpacking_keys")
-        )
+        onUpdate?.let { update ->
+            update(from, PluginLocale.getLocalizedMessage("transfer.status.unpacking_keys", prefix = true))
+        }
 
         val privateKey = try {
             ChaCha20Poly1305().decryptStringWithPassword(encryptedPrivateKey, password)
         } catch (e: Exception) {
-            from.sendMessage(
-                PluginLocale.prefixError +
-                        PluginLocale.getLocalizedError("error.args.password.wrong")
-            )
+            if (onFail != null) onFail(from, "error.args.password.wrong", null)
             return false
         }
 
@@ -828,55 +904,53 @@ open class PlayerSendable : IPlayerSendable {
         val message = try {
             PluginLocale.getLocalizedMessage("fun.creatures").split(',').let {
                 when (it.size) {
-                    0 -> PluginLocale.getLocalizedMessage("transfer.status.preparing")
+                    0 -> PluginLocale.getLocalizedMessage("transfer.status.preparing", prefix = true)
                     else -> PluginLocale.getLocalizedMessage(
                         "transfer.status.preparing.creatures",
-                        arrayOf(it[Random.nextInt(0, it.lastIndex)].trim())
+                        arrayOf(it[Random.nextInt(0, it.lastIndex + 1)].trim()),
+                        prefix = true
                     )
                 }
             }
         } catch (e: Exception) {
-            PluginLocale.getLocalizedMessage("transfer.status.preparing")
+            PluginLocale.getLocalizedMessage("transfer.status.preparing", prefix = true)
         }
 
-        from.sendMessage(
-            PluginLocale.prefixRegular +
-                    message
-        )
+        onUpdate?.let { update ->
+            update(from, message)
+        }
 
-        //  Creaing transaction on multisig
+        //  Creating transaction on multisig
         val tx = withContext(Dispatchers.Default) {
-            val onFail: ((EVER.TransactionFailReason) -> Unit) = {reason ->
+            val onFailMsig: ((EVER.TransactionFailReason) -> Unit) = { reason ->
                 val (errorMessage, args) =
-                when(reason) {
-                    EVER.TransactionFailReason.EVER_API_NOT_CONFIGURED -> Pair("error.tonapi.not_configured", null)
-                    EVER.TransactionFailReason.OTHER_API_ERROR -> Pair("error.tonapi.other", null)
-                    EVER.TransactionFailReason.INSUFFICIENT_BALANCE -> Pair("error.account.not_deployed", arrayOf<Any>(PluginLocale.currencyName ?: "ÊVER"))
-                    EVER.TransactionFailReason.TX_VALUE_EMPTY -> Pair("error.args.amount.not_numeric", null)
-                    EVER.TransactionFailReason.TX_VALUE_NOT_POSITIVE -> Pair("error.args.amount.not_positive", null)
-                    EVER.TransactionFailReason.TX_ABORTED -> Pair("transfer.status.error", null)
-                    EVER.TransactionFailReason.TOO_MANY_UNFINISHED_TXS -> Pair("error.transfer.tx.too_many_unfinished", null)
-                    EVER.TransactionFailReason.OTHER -> Pair("error.transfer.tx.uninit", null)
-                }
-                from.sendMessage(
-                    PluginLocale.prefixError +
-                            PluginLocale.getLocalizedError(errorMessage, args)
-                )
+                    when (reason) {
+                        EVER.TransactionFailReason.EVER_API_NOT_CONFIGURED -> Pair("error.tonapi.not_configured", null)
+                        EVER.TransactionFailReason.OTHER_API_ERROR -> Pair("error.tonapi.other", null)
+                        EVER.TransactionFailReason.INSUFFICIENT_BALANCE -> Pair(
+                            "error.account.not_deployed",
+                            arrayOf<Any>(PluginLocale.currencyName ?: "ÊVER")
+                        )
+                        EVER.TransactionFailReason.TX_VALUE_EMPTY -> Pair("error.args.amount.not_numeric", null)
+                        EVER.TransactionFailReason.TX_VALUE_NOT_POSITIVE -> Pair("error.args.amount.not_positive", null)
+                        EVER.TransactionFailReason.TX_ABORTED -> Pair("transfer.status.error", null)
+                        EVER.TransactionFailReason.TOO_MANY_UNFINISHED_TXS -> Pair(
+                            "error.transfer.tx.too_many_unfinished",
+                            null
+                        )
+                        EVER.TransactionFailReason.OTHER -> Pair("error.transfer.tx.uninit", null)
+                    }
+                if (onFail != null) onFail(from, errorMessage, args)
             }
 
             EVER.createTransactionToSignOnMultisig(
                 fromAddress = addressFrom,
                 toAddress = addressTo,
                 value = (amountBD * BigDecimal(1_000_000_000)).setScale(0, RoundingMode.HALF_DOWN).toString(),
-                onFail = onFail
+                onFail = onFailMsig
             )
         } ?: run {
-/*
-            from.sendMessage(
-                PluginLocale.prefixError +
-                        PluginLocale.getLocalizedError("error.transfer.tx.uninit")
-            )
-*/
+            if (onFail != null) _onFail()
             return false
         }
 
@@ -884,17 +958,13 @@ open class PlayerSendable : IPlayerSendable {
 
         //  Check that transaction has created
         if (msigTxId == null) {
-            from.sendMessage(
-                PluginLocale.prefixError +
-                        PluginLocale.getLocalizedError("error.transfer.tx.uninit")
-            )
+            if (onFail != null) onFail(from, "error.transfer.tx.uninit", null)
             return false
         }
 
-        from.sendMessage(
-            PluginLocale.prefixRegular +
-                    PluginLocale.getLocalizedMessage("transfer.status.signing")
-        )
+        onUpdate?.let { update ->
+            update(from, PluginLocale.getLocalizedMessage("transfer.status.signing", prefix = true))
+        }
 
         //  Check that signing has passed successfully
         val withdrawalResult = withContext(Dispatchers.Default) {
@@ -906,28 +976,28 @@ open class PlayerSendable : IPlayerSendable {
         }
 
         return if (withdrawalResult) {
-            val fromMessage = TextComponent(PluginLocale.prefixRegular).apply {
-                this.addExtra(
-                    PluginLocale.getLocalizedMessage(
-                        "transfer.status.success",
-                        arrayOf(
-                            amount,
-                            PluginLocale.currencyName.toString(),
-                            to?.name ?: addressTo.mask(isAddress = true)
-                        )
-                    )
-                )
-            }
+            val fromMessage = PluginLocale.getLocalizedMessage(
+                "transfer.status.success",
+                arrayOf(
+                    amount,
+                    PluginLocale.currencyName ?: "EVER",
+                    if(isStoreTx) {
+                        PluginLocale.getLocalizedMessage("store.name", colored = false)
+                    } else {
+                        to?.name ?: addressTo.mask(isAddress = true)
+                    }
+                ),
+                prefix = true
+            )
 
-            val toMessage = TextComponent(
-                PluginLocale.prefixRegular +
-                        PluginLocale.getLocalizedMessage(
-                            "transfer.incoming", arrayOf(
-                                from.name,
-                                amount,
-                                PluginLocale.currencyName.toString()
-                            )
-                        )
+            val toMessage = PluginLocale.getLocalizedMessage(
+                "transfer.incoming",
+                arrayOf(
+                    from.name,
+                    amount,
+                    PluginLocale.currencyName.toString()
+                ),
+                prefix = true
             )
 
             //  Get transaction hash, if any
@@ -935,30 +1005,37 @@ open class PlayerSendable : IPlayerSendable {
                 EVER.getTransaction(txId)
             }?.let {
                 it.transactionHash?.let { hash ->
-                    val txHash = TextComponent(PluginLocale.getLocalizedMessage("transfer.tx_hash") + " ")
-                    txHash.addExtra(
-                        TextComponent(hash.mask()).apply {
-                            this.color = net.md_5.bungee.api.ChatColor.GREEN
-                            this.clickEvent = ClickEvent(
-                                ClickEvent.Action.COPY_TO_CLIPBOARD,
-                                hash
+                    val txHash = PluginLocale.getLocalizedMessage("transfer.tx_hash", prefix = true)
+                        .append(Component.text(" ${ChatColor.GREEN}"))
+                        .append(Component.text(hash.mask()).apply {
+                            this.clickEvent(
+                                ClickEvent.clickEvent(
+                                    ClickEvent.Action.COPY_TO_CLIPBOARD,
+                                    hash
+                                )
                             )
                         })
-                    fromMessage.addExtra(txHash)
-                    toMessage.addExtra(txHash)
+                    fromMessage.append(txHash)
+                    toMessage.append(txHash)
                 }
             }
 
-            from.sendMessage(fromMessage)
-            to?.sendMessage(toMessage)
+            onUpdate?.let { update ->
+                //  Default success update
+                update(from, fromMessage)
+                to?.let {
+                    update(it, toMessage)
+                }
+            }
+
+            onSuccess?.let { success ->
+                //  Custom success update
+                success(from, null, null)
+            }
 
             true
         } else {
-            from.sendMessage(
-                PluginLocale.prefixError +
-                        PluginLocale.getLocalizedError("error.unknown")
-            )
-
+            if (onFail != null) onFail(from, "error.unknown", null)
             false
         }
     }
@@ -967,16 +1044,16 @@ open class PlayerSendable : IPlayerSendable {
         var result: String = this
         var prefix: String = ""
 
-        if(isAddress) {
-            this.split(':').let {chunks ->
-                if(chunks.size > 1) {
+        if (isAddress) {
+            this.split(':').let { chunks ->
+                if (chunks.size > 1) {
                     prefix = chunks[0] + ":"
                 }
             }
             result = this.drop(prefix.length)
         }
 
-        if(result.length <= leave * 2) return (prefix + result)
+        if (result.length <= leave * 2) return (prefix + result)
 
         return prefix +
                 result.substring(0, leave) +
