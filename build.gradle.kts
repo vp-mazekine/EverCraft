@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "com.mazekine"
-version = "0.2.0"
+version = "0.2.1"
 
 val targetJavaVersion = 16
 val ktorVersion = "1.6.7" //"1.6.5"
@@ -62,6 +62,9 @@ dependencies {
 
     //  Bukkit dependencies
     implementation("org.apache.logging.log4j:log4j-core:2.16.0")
+
+    //  bStats
+    implementation("org.bstats:bstats-bukkit:2.2.1")
 }
 
 java {

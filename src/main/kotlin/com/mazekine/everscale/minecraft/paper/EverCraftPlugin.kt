@@ -2,14 +2,14 @@ package com.mazekine.everscale.minecraft.paper
 
 import com.google.gson.GsonBuilder
 import com.mazekine.everscale.EVER
-import com.mazekine.everscale.minecraft.paper.Store.isStoreItem
+import com.mazekine.libs.bStats.Metrics
 import com.mazekine.libs.PluginLocale
 import com.mazekine.libs.PluginSecureStorage
+import com.mazekine.libs.bStats.CustomMetrics
 import org.bukkit.NamespacedKey
 import org.bukkit.enchantments.Enchantment
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
-import org.bukkit.event.player.PlayerInteractEvent
 import org.bukkit.event.player.PlayerJoinEvent
 import org.bukkit.plugin.java.JavaPlugin
 import org.slf4j.LoggerFactory
@@ -48,7 +48,7 @@ class EverCraftPlugin : JavaPlugin(), Listener {
         }
 
         val locale = config.getString("locale")
-        if(!(locale == null || locale == "")) {
+        if (!(locale == null || locale == "")) {
             PluginLocale.setLocale(locale)
         }
 
@@ -90,6 +90,16 @@ class EverCraftPlugin : JavaPlugin(), Listener {
 
         //  Inject logging filter
         PasswordFilter().registerFilter()
+
+        //  Add bStats
+        val pluginId = 13970
+        val metrics = Metrics(this, pluginId)
+        metrics.addCustomChart(CustomMetrics.couponPrice())
+        metrics.addCustomChart(CustomMetrics.storeItems())
+        metrics.addCustomChart(CustomMetrics.storeAverageLotSize())
+        metrics.addCustomChart(CustomMetrics.storeAverageLotPrice())
+        metrics.addCustomChart(CustomMetrics.everCraftAccounts())
+        metrics.addCustomChart(CustomMetrics.everAccounts())
     }
 
     override fun onDisable() {
@@ -106,13 +116,13 @@ class EverCraftPlugin : JavaPlugin(), Listener {
         if (!firstNotice) {
             player.sendMessage(
                 PluginLocale.prefixRegular +
-                PluginLocale.getLocalizedMessage(
-                    "greeting",
-                    arrayOf(
-                        player.name,
-                        PluginLocale.currencyName ?: "EVER"
-                    )
-                )
+                        PluginLocale.getLocalizedMessage(
+                            "greeting",
+                            arrayOf(
+                                player.name,
+                                PluginLocale.currencyName ?: "EVER"
+                            )
+                        )
             )
 
             PluginSecureStorage.setPlayerFirstNotice(playerId, true)
@@ -147,8 +157,8 @@ class EverCraftPlugin : JavaPlugin(), Listener {
         } catch (e: Exception) {
             logger.error(
                 "Error 0x1 while registering the glow effect\n" +
-                e.message + "\n" +
-                e.stackTrace.joinToString("\n")
+                        e.message + "\n" +
+                        e.stackTrace.joinToString("\n")
             )
         }
 
@@ -165,6 +175,9 @@ class EverCraftPlugin : JavaPlugin(), Listener {
             )
         }
     }
+
+
+
 
 
 }

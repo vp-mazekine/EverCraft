@@ -136,7 +136,7 @@ object Store : Listener {
     var couponPrice: BigDecimal = BigDecimal(1)
     var storeWallet: String? = null
         private set
-    private val storeItems: MutableMap<Material, Item> = mutableMapOf()
+    val storeItems: MutableMap<Material, Item> = mutableMapOf()
     private var isInitialized: Boolean = false
 
     //  Collection of windows opened by players
@@ -386,6 +386,10 @@ object Store : Listener {
         }
     }
 
+    /**
+     * Registers events in Bukkit
+     *
+     */
     private fun registerEvents() {
         Bukkit.getPluginManager().let { pm ->
             pm.getPlugin("EverCraft")?.let { plugin ->
@@ -635,6 +639,11 @@ object Store : Listener {
             }
         }
 
+        /**
+         * Provides basic reaction to the click in the GUI
+         *
+         * @see [Store.DefaultClicker]
+         */
         interface OnClick {
             fun click(player: Player, gui: GUI, row: Row, slot: Int, item: ItemStack): Boolean
         }
