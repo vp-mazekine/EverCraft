@@ -2,6 +2,7 @@ package com.mazekine.everscale.minecraft.paper
 
 import com.google.gson.Gson
 import com.mazekine.everscale.EVER
+import com.mazekine.everscale.minecraft.paper.Store.countAll
 import com.mazekine.everscale.minecraft.paper.Store.isStoreItem
 import com.mazekine.everscale.models.AccountType
 import com.mazekine.libs.ChaCha20Poly1305
@@ -612,22 +613,41 @@ class ECouponCommand : CommandExecutor, PlayerSendable() {
 
         val onSuccess: (Player?, String?, Array<out Any>?) -> Unit = { p, m, a ->
             p?.let {
+                val initialQuantity = it.inventory.countAll { stack ->
+                    stack?.isStoreItem(Store.Buttons.COUPON) == true
+                }
+
+                var remainingQuantity = amount ?: run {
+                    if(m != null) _onFail(p, m, a)
+                    _onFail(
+                        it,
+                        PluginLocale.getLocalizedError("error.store.purchase_error")
+                    )
+                    return@let
+                }
+
                 //  Try to find existing stack of coupons to add to it
-                var delivered = false
                 run delivery@{
                     it.inventory.forEach { stack ->
-                        if (stack?.isStoreItem(Store.Buttons.COUPON) == true) {
-                            stack.add(amount!!)
-                            delivered = true
-                            return@delivery
+                        if (stack?.isStoreItem(Store.Buttons.COUPON) == true &&
+                                stack.amount < stack.maxStackSize) {
+                            val availableSlot = stack.maxStackSize - stack.amount
+                            if(availableSlot < remainingQuantity) {
+                                remainingQuantity -= availableSlot
+                                stack.amount += availableSlot
+                            } else {
+                                stack.amount += remainingQuantity
+                                remainingQuantity = 0
+                                return@delivery
+                            }
                         }
                     }
                 }
 
                 //  Create a new stack otherwise
-                if(!delivered) {
+                if(remainingQuantity != 0) {
                     it.inventory.addItem(
-                        Store.coupon.asQuantity(amount!!)
+                        Store.coupon.asQuantity(remainingQuantity)
                     )
                 }
 
@@ -673,6 +693,11 @@ class ECouponCommand : CommandExecutor, PlayerSendable() {
 
 }
 
+/**
+ * Adds the opportunity to withdraw funds from a user's wallet to the specific command
+ *
+ * @constructor Create empty IPlayerSendable
+ */
 interface IPlayerSendable : ICommunicative {
     fun withdraw(
         player: Player,
@@ -700,6 +725,11 @@ interface IPlayerSendable : ICommunicative {
     enum class SendType { Send, Withdraw }
 }
 
+/**
+ * Introduces the user feedback communication
+ *
+ * @constructor Create empty ICommunicative
+ */
 interface ICommunicative {
     fun _onSuccess(player: Player? = null, message: String? = null, args: Array<out Any>? = null) {
         player?.let { p ->
@@ -726,6 +756,11 @@ interface ICommunicative {
     }
 }
 
+/**
+ * Implements IPlayerSendable
+ *
+ * @constructor Create empty PlayerSendable
+ */
 open class PlayerSendable : IPlayerSendable {
     protected val logger by lazy { LoggerFactory.getLogger(this::class.java) }
 

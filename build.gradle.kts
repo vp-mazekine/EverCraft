@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "com.mazekine"
-version = "0.2.1"
+version = "0.2.2-RC1"
 
 val targetJavaVersion = 16
 val ktorVersion = "1.6.7" //"1.6.5"
