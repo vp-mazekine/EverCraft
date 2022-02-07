@@ -1,0 +1,39 @@
+storage:
+  # This parameter will be generated automatically at the first start.
+  # Do not change it, or you will ruin the access of players to their funds
+  password:
+
+  # Allows a player to have several addresses
+  # Reserved for future use
+  multipleAddresses:  false
+
+api:
+  # Update this URL with your local instance of TON API
+  # Get yours from https://github.com/broxus/ton-wallet-api
+  # Swagger: https://tonapi.broxus.com/ton/v3/swagger.yaml
+  # Put only the protocol and domain name, without the requests prefix
+  endpoint: https://ton-api-test.broxus.com
+
+  # Will be added between the endpoint and method name
+  # Do not change this unless you know what you are doing
+  prefix: /ton/v3
+
+  # API key for making calls
+  key:  null
+
+  # Secret for signing calls
+  secret: null
+
+tonos:
+  # GraphQL endpoint
+  network:  main.ton.dev
+
+security:
+  # This parameter will be generated automatically at the first start.
+  # Do not change it, or you will ruin the access of players to their funds
+  salt:
+
+locale: en
+
+# Reserved for future use
+debug: false
