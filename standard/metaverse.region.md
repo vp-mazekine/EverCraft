@@ -146,7 +146,7 @@ They are defined by coordinates of basic central point, radius, and height.
 
 Sphere is described by coordinates of central point and radius.
 
-##### Spheric object specification
+##### Spherical object specification
 
 | Field name | Type | Description | Value |
 | --- | --- | --- | --: |
