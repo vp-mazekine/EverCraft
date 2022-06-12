@@ -123,7 +123,7 @@ class ChaCha20Poly1305 (
                 return newNonce
             }
 
-        var salt: String = "EverCraft"
+        var salt: String = PLUGIN_NAME
     }
 }
 

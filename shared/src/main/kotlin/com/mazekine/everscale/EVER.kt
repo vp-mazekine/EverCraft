@@ -251,13 +251,57 @@ object EVER {
             }.data
         } catch (e: ResponseException) {
             logger.error(
-                "[checkAddress] Error ${e.response.status.value}: ${e.response.status.description} when trying to get EVER address $address\n" +
+                "[getAddress] Error ${e.response.status.value}: ${e.response.status.description} when trying to get EVER address $address\n" +
                         e.response.readText()
             )
             null
         } catch (e: Exception) {
             logger.error(
-                "[checkAddress] Couldn't get the EVER address $address\n" +
+                "[getAddress] Couldn't get the EVER address $address\n" +
+                        e.message + "\n" +
+                        e.stackTrace.joinToString("\n")
+            )
+            null
+        }
+    }
+
+    /**
+     * Gets address info
+     *
+     * @param address   Address
+     * @return          Address metadata
+     */
+    suspend fun getAddressInfo(address: String): AddressInfoOutputData? {
+        if(!apiIsConfigured()) {
+            logger.error(
+                "[getAddressInfo] " +
+                        getLocalizedMessage("error.tonapi.not_configured")
+            )
+            return null
+        }
+
+        val path = "$apiPrefix/address/$address/info"
+        val (signature, nonce) = sign(path) ?: return null
+        return try {
+            tonApiClient.get<AddressInfoOutput>(apiEndpoint + path) {
+                headers {
+                    append("Accept", "application/json")
+                    append("Accept-Encoding", "gzip, deflate, br")
+                    append("Connection", "keep-alive")
+                    append("api-key", apiKey!!)
+                    append("sign", signature)
+                    append("timestamp", nonce.toString())
+                }
+            }.data
+        } catch (e: ResponseException) {
+            logger.error(
+                "[getAddressInfo] Error ${e.response.status.value}: ${e.response.status.description} when trying to get info for EVER address $address\n" +
+                        e.response.readText()
+            )
+            null
+        } catch (e: Exception) {
+            logger.error(
+                "[getAddressInfo] Couldn't get the EVER address info for $address\n" +
                         e.message + "\n" +
                         e.stackTrace.joinToString("\n")
             )
@@ -284,7 +328,7 @@ object EVER {
         bounce: Boolean = false,
         id: UUID = UUID.randomUUID(),
         onFail: ((TransactionFailReason) -> Unit)? = null
-    ): Triple<String, String?, String?>? {
+    ): TransactionIds? /*Triple<String, String?, String?>?*/ {
         if(!apiIsConfigured()) {
             logger.error(
                 "[createTransaction] " +
@@ -297,7 +341,7 @@ object EVER {
         val path = "$apiPrefix/transactions/create"
 
         value.toBigDecimalOrNull()?.let {
-            if(it <= BigDecimal(0)) {
+            if (it < BigDecimal(0)) {
                 logger.error("[createTransaction] Transaction value must be positive")
                 onFail?.let { it(TransactionFailReason.TX_VALUE_NOT_POSITIVE) }
                 return null
@@ -308,13 +352,18 @@ object EVER {
             return null
         }
 
-        val tx = SendTransactionData(type, toAddress, value)
+        val tx = SendTransactionData(
+            type, toAddress,
+            value
+        )
+
         val body = SendTransactionInput(
             bounce,
             fromAddress,
             id,
             listOf(tx)
         ).toJson()
+        logger.info(body)
         val (signature, nonce) = sign(path, body) ?: return null
 
         val response = try {
@@ -361,7 +410,7 @@ object EVER {
 
         if (response.data == null) {
             logger.error(
-                "[checkAddress] Error while creating the transaction of $value EVER from address $fromAddress to $toAddress\nError message: ${response.errorMessage}"
+                "[createTransaction] Error while creating the transaction of $value EVER from address $fromAddress to $toAddress\nError message: ${response.errorMessage}"
             )
             onFail?.let { it(
                 when {
@@ -381,11 +430,20 @@ object EVER {
             return null
         }
 
+        return TransactionIds(
+            response.data.id,
+            response.data.messageHash,
+            response.data.transactionHash,
+            response.data.multisigTransactionId
+        )
+
+/*
         return Triple(
             response.data.id,
             response.data.messageHash,
             response.data.transactionHash
         )
+*/
     }
 
     /**
@@ -557,7 +615,7 @@ object EVER {
             fromAddress, toAddress, value, type, bounce, id, onFail
         ) ?: return null
 
-        val (txId, msgHash, txHash) = txData
+        val (txId, msgHash, txHash, msigId) = txData
 
         //  Make sure that the transaction was created in the wallet
         var tx = getTransaction(txId = txId)
@@ -579,6 +637,7 @@ object EVER {
             tx = getTransaction(txId = txId)
         }
 
+/*
         //  Get new msig transactions
         val newMsigTxList = getSafeMultisigTransactions(fromAddress)
 
@@ -593,9 +652,10 @@ object EVER {
             .filter { it.dest == toAddress }
             .maxByOrNull { it.id }
             ?.id
+*/
 
         return TransactionToSign(
-            msigTxId,
+            tx?.multisigTransactionId,
             txId,
             msgHash,
             txHash

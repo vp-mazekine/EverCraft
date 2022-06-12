@@ -1,17 +1,20 @@
 package com.mazekine.everscale.minecraft.paper
 
 import com.google.gson.Gson
+import com.google.gson.GsonBuilder
 import com.mazekine.everscale.EVER
-import com.mazekine.everscale.minecraft.paper.Store.countAll
 import com.mazekine.everscale.minecraft.paper.Store.isStoreItem
-import com.mazekine.everscale.models.AccountType
+import com.mazekine.everscale.models.*
 import com.mazekine.libs.ChaCha20Poly1305
+import com.mazekine.libs.PLUGIN_NAME
 import com.mazekine.libs.PluginLocale
 import com.mazekine.libs.PluginSecureStorage
 import ee.nx01.tonclient.abi.KeyPair
 import kotlinx.coroutines.*
 import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.TextComponent
 import net.kyori.adventure.text.event.ClickEvent
+import net.kyori.adventure.text.format.NamedTextColor
 import org.bukkit.Bukkit
 import org.bukkit.ChatColor
 import org.bukkit.command.Command
@@ -21,6 +24,8 @@ import org.bukkit.entity.Player
 import org.slf4j.LoggerFactory
 import java.math.BigDecimal
 import java.math.RoundingMode
+import java.text.MessageFormat
+import java.util.*
 import kotlin.random.Random
 
 /**
@@ -29,6 +34,7 @@ import kotlin.random.Random
  * @constructor Create empty E send command
  */
 class ESendCommand : CommandExecutor, PlayerSendable() {
+    @OptIn(DelicateCoroutinesApi::class)
     override fun onCommand(
         sender: CommandSender,
         command: Command,
@@ -132,7 +138,7 @@ class EPKCommand : CommandExecutor, ICommunicative {
  *
  * @constructor Create empty E register command
  */
-class ERegisterCommand : CommandExecutor, ICommunicative {
+class ERegisterCommand : CommandExecutor, ICommunicative, Maskable() {
     override fun onCommand(
         sender: CommandSender,
         command: Command,
@@ -169,15 +175,26 @@ class ERegisterCommand : CommandExecutor, ICommunicative {
                         _onFail(player, "error.account.pk.not_saved")
                         return false
                     }
-                    val privateKey = ChaCha20Poly1305().decryptStringWithPassword(encryptedPrivateKey, args[0])
-                    val publicKey = PluginSecureStorage.derivePublicKey(privateKey)
+                    val password = args[0]
+                    val prk1 = try {
+                        ChaCha20Poly1305().decryptStringWithPassword(
+                            encryptedPrivateKey,
+                            password
+                        )
+                    } catch (e: Exception) {
+                        _onFail(player, "error.args.password.wrong")
+                        return false
+                    }
+                    val pub1 = PluginSecureStorage.derivePublicKey(prk1)
+                    val prk2 = PluginSecureStorage.generatePrivateKey()
+                    val pub2 = PluginSecureStorage.derivePublicKey(prk2)
 
                     val address = runBlocking {
                         EVER.createAddress(
                             AccountType.SafeMultisig,
                             2,
-                            2,
-                            listOf(publicKey)
+                            3,
+                            listOf(pub1, pub2)
                         )
                     } ?: run {
                         _onFail(player, "error.account.address.not_saved")
@@ -187,17 +204,67 @@ class ERegisterCommand : CommandExecutor, ICommunicative {
                     PluginSecureStorage.setPlayerAddress(player.uniqueId.toString(), address)
 
                     //  TODO:   Check that works after refactoring
-                    player.sendMessage(
-                        PluginLocale.getLocalizedMessage("account.status.success", prefix = true)
-                            .append(
-                                Component.text("${ChatColor.GREEN.asBungee()}$address").clickEvent(
+                    var message = PluginLocale.getLocalizedMessage("account.status.success", prefix = true)
+                        .append(
+                            Component.text()
+                                .content(address.mask(isAddress = true))
+                                .color(NamedTextColor.GREEN)
+                                .clickEvent(
                                     ClickEvent.clickEvent(
                                         ClickEvent.Action.COPY_TO_CLIPBOARD,
                                         address
                                     )
                                 )
-                            )
+                                .build()
+                        )
+                    if (player.isOnline) player.sendMessage(message)
+
+                    message = PluginLocale.getLocalizedMessage(
+                        "pk.all.1",
+                        arrayOf(address.mask(isAddress = true)),
+                        prefix = true
                     )
+                    if (player.isOnline) player.sendMessage(message)
+
+                    message = PluginLocale
+                        .getLocalizedMessage("pk.all.2", arrayOf(1), prefix = true)
+                        .append(
+                            Component.text()
+                                .content(prk1.mask())
+                                .color(NamedTextColor.GREEN)
+                                .clickEvent(
+                                    ClickEvent.clickEvent(
+                                        ClickEvent.Action.COPY_TO_CLIPBOARD,
+                                        gson.toJson(
+                                            Keys(pub1, prk1)
+                                        )
+                                    )
+                                )
+                                .build()
+                        )
+
+                    if (player.isOnline) player.sendMessage(message)
+
+                    message = PluginLocale
+                        .getLocalizedMessage("pk.all.2", arrayOf(2), prefix = true)
+                        .append(
+                            Component.text()
+                                .content(prk2.mask())
+                                .color(NamedTextColor.GREEN)
+                                .clickEvent(
+                                    ClickEvent.clickEvent(
+                                        ClickEvent.Action.COPY_TO_CLIPBOARD,
+                                        gson.toJson(
+                                            Keys(pub2, prk2)
+                                        )
+                                    )
+                                )
+                                .build()
+                        )
+                    if (player.isOnline) player.sendMessage(message)
+
+                    message = PluginLocale.getLocalizedMessage("pk.display.2", prefix = true)
+                    if (player.isOnline) player.sendMessage(message)
 
                     true
                 } else {
@@ -460,7 +527,56 @@ class EUserDataCommand : CommandExecutor {
     ): Boolean {
         if (sender is Player) return true
 
-        println(Gson().toJson(PluginSecureStorage.getAllPlayersData()))
+        val locale: ResourceBundle = ResourceBundle.getBundle("messages", Locale.ENGLISH)
+
+        if (args.isEmpty()) {
+            println(Gson().toJson(PluginSecureStorage.getAllPlayersData()))
+        } else {
+            val subcommand = args[0]
+
+            when (subcommand.lowercase()) {
+                "reset_notifications" -> {
+                    if (args.count() != 2) {
+                        println(
+                            MessageFormat(
+                                locale.getString("error.args.wrong_number")
+                            ).format(
+                                arrayOf(2)
+                            )
+                        )
+                        return false
+                    }
+
+                    val userId = args[1]
+                    if (PluginSecureStorage.getPlayerWelcomeNotification(userId) == null) {
+                        println(
+                            MessageFormat(
+                                locale.getString("error.args.player.absent")
+                            ).format(
+                                arrayOf(userId)
+                            )
+                        )
+                        return false
+                    }
+
+                    PluginSecureStorage.setWalletUpgradeRequiredNotification(userId, false)
+                    PluginSecureStorage.setPlayerWelcomeNotification(userId, false)
+
+                    println(
+                        MessageFormat(
+                            locale.getString("notifications.reset")
+                        ).format(
+                            arrayOf(userId)
+                        )
+                    )
+                }
+                else -> {
+                    println(locale.getString("error.args.unknown"))
+                    return false
+                }
+            }
+        }
+
         return true
     }
 
@@ -482,7 +598,7 @@ class EVersionCommand : CommandExecutor, ICommunicative {
                 "version",
                 arrayOf(
                     Bukkit.getPluginManager()
-                        .getPlugin("EverCraft")?.description?.version ?: "0.0.0"
+                        .getPlugin(PLUGIN_NAME)?.description?.version ?: "0.0.0"
                 ),
                 prefix = true
             )
@@ -609,12 +725,8 @@ class ECouponCommand : CommandExecutor, PlayerSendable() {
 
         val onSuccess: (Player?, String?, Array<out Any>?) -> Unit = { p, m, a ->
             p?.let {
-                val initialQuantity = it.inventory.countAll { stack ->
-                    stack?.isStoreItem(Store.Buttons.COUPON) == true
-                }
-
                 var remainingQuantity = amount ?: run {
-                    if(m != null) _onFail(p, m, a)
+                    if (m != null) _onFail(p, m, a)
                     _onFail(
                         it,
                         PluginLocale.getLocalizedError("error.store.purchase_error")
@@ -626,9 +738,10 @@ class ECouponCommand : CommandExecutor, PlayerSendable() {
                 run delivery@{
                     it.inventory.forEach { stack ->
                         if (stack?.isStoreItem(Store.Buttons.COUPON) == true &&
-                                stack.amount < stack.maxStackSize) {
+                            stack.amount < stack.maxStackSize
+                        ) {
                             val availableSlot = stack.maxStackSize - stack.amount
-                            if(availableSlot < remainingQuantity) {
+                            if (availableSlot < remainingQuantity) {
                                 remainingQuantity -= availableSlot
                                 stack.amount += availableSlot
                             } else {
@@ -641,7 +754,7 @@ class ECouponCommand : CommandExecutor, PlayerSendable() {
                 }
 
                 //  Create a new stack otherwise
-                if(remainingQuantity != 0) {
+                if (remainingQuantity != 0) {
                     it.inventory.addItem(
                         Store.coupon.asQuantity(remainingQuantity)
                     )
@@ -659,7 +772,7 @@ class ECouponCommand : CommandExecutor, PlayerSendable() {
 
         val onFail: (Player?, String?, Array<out Any>?) -> Unit = { p, m, a ->
             p?.let {
-                if(m != null) _onFail(p, m, a)
+                if (m != null) _onFail(p, m, a)
                 _onFail(
                     it,
                     PluginLocale.getLocalizedError("error.store.purchase_error")
@@ -667,7 +780,7 @@ class ECouponCommand : CommandExecutor, PlayerSendable() {
             }
         }
 
-        if(Store.couponPrice == BigDecimal(0)) {
+        if (Store.couponPrice == BigDecimal(0)) {
             onSuccess(player, null, null)
         } else {
             withdraw(
@@ -689,12 +802,283 @@ class ECouponCommand : CommandExecutor, PlayerSendable() {
 
 }
 
+class EUpgradeCommand : CommandExecutor, PlayerSendable() {
+    override fun onCommand(
+        sender: CommandSender,
+        command: Command,
+        label: String,
+        args: Array<out String>
+    ): Boolean {
+        //  Only players can use this command
+        if (sender !is Player) {
+            sender.sendMessage(
+                PluginLocale.getLocalizedError("error.access.player_only", prefix = true)
+            )
+            return false
+        }
+
+        val player: Player = sender
+
+        if (args.isEmpty()) {
+            _onFail(player, "error.args.password.missing")
+            return false
+        }
+
+        if (args.size > 1) {
+            _onFail(player, "error.args.wrong_number", arrayOf(1))
+            return false
+        }
+
+        val password = args[0]
+        val prk1 = try {
+            PluginSecureStorage.getPrivateKey(player.uniqueId.toString())?.let {
+                ChaCha20Poly1305().decryptStringWithPassword(
+                    it,
+                    password
+                )
+            }
+                ?: PluginSecureStorage.generatePrivateKey()
+        } catch (e: Exception) {
+            _onFail(player, "error.args.password.wrong")
+            return false
+        }
+
+        val walletsToUpgrade = PluginSecureStorage.walletsToUpgrade(player.uniqueId.toString())
+
+        if (walletsToUpgrade.isEmpty()) {
+            player.sendMessage(
+                PluginLocale.prefixRegular +
+                        PluginLocale.getLocalizedMessage("account.upgrade.not_needed")
+            )
+            return true
+        }
+
+        //  Get all account balances
+        val walletsBalances: MutableMap<String, String> = mutableMapOf()
+
+        runBlocking {
+            val job = launch {
+                walletsToUpgrade.forEach { address ->
+                    launch {
+                        EVER.getAddress(address)?.let { account ->
+                            if (account.balance.trim() != "") walletsBalances[address] = account.balance
+                        }
+                    }
+                }
+            }
+
+            job.join()
+        }
+
+        //  Get all addresses except ones that require upgrade
+        val userAddresses = PluginSecureStorage
+            .getAllPlayersData()[player.uniqueId.toString()]
+            ?.addresses
+            ?.filter { !walletsToUpgrade.contains(it) }
+            ?: mutableListOf()
+
+        //  Get addresses metadata
+        val userAddressesData: MutableList<AddressInfoOutputData> = mutableListOf()
+
+        runBlocking {
+            val job = launch {
+                userAddresses.forEach { address ->
+                    launch {
+                        EVER.getAddressInfo(address)?.let { info ->
+                            if (info.custodians == 3 && info.confirmations == 2) userAddressesData.add(info)
+                        }
+                    }
+                }
+            }
+
+            job.join()
+        }
+
+        val targetAddress: String =
+            if (userAddressesData.isEmpty()) {
+                val puk1 = PluginSecureStorage.derivePublicKey(prk1)
+                val prk2 = PluginSecureStorage.generatePrivateKey()
+                val puk2 = PluginSecureStorage.derivePublicKey(prk2)
+
+                val newAddress = runBlocking {
+                    _onSuccess(player, "account.upgrade.account.creating")
+                    EVER.createAddress(
+                        AccountType.SafeMultisig,
+                        2,
+                        3,
+                        listOf(puk1, puk2)
+                    )
+                }
+                    ?: run {
+                        _onFail(player, PluginLocale.getLocalizedMessage("error.account.address.not_saved"))
+                        return false
+                    }
+
+                var message = PluginLocale
+                    .getLocalizedMessage("account.upgrade.account.created", prefix = true)
+                    .append(
+                        Component.text()
+                            .content(newAddress.mask(isAddress = true))
+                            .color(NamedTextColor.GREEN)
+                            .clickEvent(
+                                ClickEvent.clickEvent(
+                                    ClickEvent.Action.COPY_TO_CLIPBOARD,
+                                    newAddress
+                                )
+                            )
+                            .build()
+                    )
+
+                //  Send player the address of new account
+                if (player.isOnline) player.sendMessage(message)
+
+                message = PluginLocale.getLocalizedMessage(
+                    "pk.all.1",
+                    arrayOf(newAddress.mask(isAddress = true)),
+                    prefix = true
+                )
+                if (player.isOnline) player.sendMessage(message)
+
+                message = PluginLocale
+                    .getLocalizedMessage("pk.all.2", arrayOf(1), prefix = true)
+                    .append(
+                        Component.text()
+                            .content(prk1.mask())
+                            .color(NamedTextColor.GREEN)
+                            .clickEvent(
+                                ClickEvent.clickEvent(
+                                    ClickEvent.Action.COPY_TO_CLIPBOARD,
+                                    gson.toJson(
+                                        Keys(puk1, prk1)
+                                    )
+                                )
+                            )
+                            .build()
+                    )
+
+                if (player.isOnline) player.sendMessage(message)
+
+                message = PluginLocale
+                    .getLocalizedMessage("pk.all.2", arrayOf(2), prefix = true)
+                    .append(
+                        Component.text()
+                            .content(prk2.mask())
+                            .color(NamedTextColor.GREEN)
+                            .clickEvent(
+                                ClickEvent.clickEvent(
+                                    ClickEvent.Action.COPY_TO_CLIPBOARD,
+                                    gson.toJson(
+                                        Keys(puk2, prk2)
+                                    )
+                                )
+                            )
+                            .build()
+                    )
+                if (player.isOnline) player.sendMessage(message)
+
+                message = PluginLocale.getLocalizedMessage("pk.display.2", prefix = true)
+                if (player.isOnline) player.sendMessage(message)
+
+                //  Send player the keys to the newly created account or stop execution if he is not online
+
+                if (!player.isOnline) return false
+
+                newAddress
+            } else {
+                userAddressesData
+                    .maxByOrNull { it.createdAt }!!
+                    .address
+                    .let { address ->
+                        "${address.workchainId}:${address.hex}"
+                    }
+            }
+
+        //  Get balances of wallets to upgrade
+        val walletsToUpgradeData: MutableList<AddressInfoOutputData> = mutableListOf()
+
+        runBlocking {
+            val job = launch {
+                walletsToUpgrade.forEach { address ->
+                    launch {
+                        EVER.getAddressInfo(address)?.let { info ->
+                            if (info.custodians == 2 && info.confirmations == 2) walletsToUpgradeData.add(info)
+                        }
+                    }
+                }
+            }
+
+            job.join()
+        }
+
+        _onSuccess(player, "account.upgrade.transferring")
+        var migrationCounter = 0
+        runBlocking {
+            val job = launch {
+                walletsToUpgradeData.forEach { data ->
+                    launch address@{
+                        val address = "${data.address.workchainId}:${data.address.hex}"
+                        var isAddressEmpty = true
+                        data.balance.toBigDecimalOrNull()?.let { balance ->
+                            if (balance > 0.toBigDecimal()) {
+                                val result = withdraw(
+                                    address,
+                                    targetAddress,
+                                    balance.divide(BigDecimal(1e9)).toPlainString(),
+                                    password,
+                                    player,
+                                    isFullAmount = true
+                                )
+
+                                if (!result) isAddressEmpty = false
+                            }
+                        }
+
+                        if (!isAddressEmpty) {
+                            _onFail(
+                                player,
+                                "error.account.migration.address_failed",
+                                arrayOf(address.mask(isAddress = true))
+                            )
+                            return@address
+                        }
+
+                        migrationCounter++
+                        PluginSecureStorage.deletePlayerAddress(player.uniqueId.toString(), address)
+                    }
+                }
+            }
+
+            job.join()
+        }
+
+        return when (migrationCounter) {
+            walletsToUpgrade.size -> {
+                //  Add the new address to data storage
+                PluginSecureStorage.setPlayerAddress(player.uniqueId.toString(), targetAddress)
+
+                _onSuccess(player, "account.upgrade.success")
+                true
+            }
+            0 -> {
+                _onFail(player, "error.account.migration.failed")
+                false
+            }
+            else -> {
+                _onFail(player, "error.account.migration.partially_failed")
+                true
+            }
+        }
+    }
+
+}
+
 /**
  * Adds the opportunity to withdraw funds from a user's wallet to the specific command
  *
  * @constructor Create empty IPlayerSendable
  */
 interface IPlayerSendable : ICommunicative {
+
     fun withdraw(
         player: Player,
         command: SendType,
@@ -715,7 +1099,8 @@ interface IPlayerSendable : ICommunicative {
         onSuccess: ((Player?, String?, Array<out Any>?) -> Unit)? = ::_onSuccess,
         onFail: ((Player?, String?, Array<out Any>?) -> Unit)? = ::_onFail,
         onUpdate: ((Player?, Component?) -> Unit)? = ::_onUpdate,
-        isStoreTx: Boolean = false
+        isStoreTx: Boolean = false,
+        isFullAmount: Boolean = false
     ): Boolean
 
     enum class SendType { Send, Withdraw }
@@ -735,10 +1120,18 @@ interface ICommunicative {
         }
     }
 
+    fun _onSuccessRich(player: Player? = null, message: TextComponent? = null) {
+        player?.let { p ->
+            message?.let { m ->
+                if (p.isOnline) p.sendMessage(m)
+            }
+        }
+    }
+
     fun _onUpdate(player: Player? = null, message: Component? = null) {
         player?.let { p ->
             message?.let { m ->
-                if (p.isOnline) p.sendMessage(message)
+                if (p.isOnline) p.sendMessage(m)
             }
         }
     }
@@ -757,7 +1150,7 @@ interface ICommunicative {
  *
  * @constructor Create empty PlayerSendable
  */
-open class PlayerSendable : IPlayerSendable {
+open class PlayerSendable : IPlayerSendable, Maskable() {
     protected val logger by lazy { LoggerFactory.getLogger(this::class.java) }
 
     /**
@@ -768,6 +1161,7 @@ open class PlayerSendable : IPlayerSendable {
      * @param args      Command inputs
      * @return True if all went smoothly, False otherwise
      */
+    @OptIn(DelicateCoroutinesApi::class)
     override fun withdraw(
         player: Player,
         command: IPlayerSendable.SendType,
@@ -850,7 +1244,8 @@ open class PlayerSendable : IPlayerSendable {
         onSuccess: ((Player?, String?, Array<out Any>?) -> Unit)?,
         onFail: ((Player?, String?, Array<out Any>?) -> Unit)?,
         onUpdate: ((Player?, Component?) -> Unit)?,
-        isStoreTx: Boolean
+        isStoreTx: Boolean,
+        isFullAmount: Boolean
     ): Boolean {
         //  Check that addresses don't match
         if (addressFrom == addressTo) {
@@ -977,6 +1372,7 @@ open class PlayerSendable : IPlayerSendable {
                 fromAddress = addressFrom,
                 toAddress = addressTo,
                 value = (amountBD * BigDecimal(1_000_000_000)).setScale(0, RoundingMode.HALF_DOWN).toString(),
+                type = if (isFullAmount) TransactionSendOutputType.AllBalance else TransactionSendOutputType.Normal,
                 onFail = onFailMsig
             )
         } ?: run {
@@ -1011,7 +1407,7 @@ open class PlayerSendable : IPlayerSendable {
                 arrayOf(
                     amount,
                     PluginLocale.currencyName ?: "EVER",
-                    if(isStoreTx) {
+                    if (isStoreTx) {
                         PluginLocale.getLocalizedMessage("store.name", colored = false)
                     } else {
                         to?.name ?: addressTo.mask(isAddress = true)
@@ -1069,10 +1465,35 @@ open class PlayerSendable : IPlayerSendable {
             false
         }
     }
-
-    private fun String.mask(leave: Int = 6, delimiter: String = "...", isAddress: Boolean = false): String {
+/*
+    protected fun String.mask(leave: Int = 6, delimiter: String = "...", isAddress: Boolean = false): String {
         var result: String = this
-        var prefix: String = ""
+        var prefix = ""
+
+        if (isAddress) {
+            this.split(':').let { chunks ->
+                if (chunks.size > 1) {
+                    prefix = chunks[0] + ":"
+                }
+            }
+            result = this.drop(prefix.length)
+        }
+
+        if (result.length <= leave * 2) return (prefix + result)
+
+        return prefix +
+                result.substring(0, leave) +
+                delimiter +
+                result.substring(result.length - leave, result.length)
+    }*/
+}
+
+open class Maskable {
+    protected val gson by lazy { GsonBuilder().setLenient().create() }
+
+    protected fun String.mask(leave: Int = 6, delimiter: String = "...", isAddress: Boolean = false): String {
+        var result: String = this
+        var prefix = ""
 
         if (isAddress) {
             this.split(':').let { chunks ->

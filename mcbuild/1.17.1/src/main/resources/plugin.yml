@@ -64,3 +64,7 @@ commands:
     usage: /<command>
     aliases:
       - e_v
+  e_upgrade:
+    description: Upgrade your account to a newer version
+    usage: |
+      Usage: /<command> [password]

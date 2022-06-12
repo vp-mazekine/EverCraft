@@ -4,10 +4,13 @@ import com.google.gson.GsonBuilder
 import com.mazekine.everscale.EVER
 import com.mazekine.everscale.models.APIConfig
 import com.mazekine.libs.ChaCha20Poly1305
+import com.mazekine.libs.PLUGIN_NAME
 import com.mazekine.libs.bStats.Metrics
 import com.mazekine.libs.PluginLocale
 import com.mazekine.libs.PluginSecureStorage
 import com.mazekine.libs.bStats.CustomMetrics
+import com.mazekine.libs.migration.Migration
+import com.mazekine.libs.migration.Migration_0_2_3
 import org.bukkit.NamespacedKey
 import org.bukkit.enchantments.Enchantment
 import org.bukkit.event.EventHandler
@@ -15,6 +18,7 @@ import org.bukkit.event.Listener
 import org.bukkit.event.player.PlayerJoinEvent
 import org.bukkit.plugin.java.JavaPlugin
 import org.slf4j.LoggerFactory
+import kotlin.jvm.Throws
 
 class EverCraftPlugin : JavaPlugin(), Listener {
     private val logger by lazy { LoggerFactory.getLogger(this::class.java) }
@@ -28,7 +32,7 @@ class EverCraftPlugin : JavaPlugin(), Listener {
     companion object {
         @JvmStatic
         fun main(args: Array<String>) {
-            println("EverCraft plugin has started")
+            println("$PLUGIN_NAME plugin has started")
         }
     }
 
@@ -56,6 +60,9 @@ class EverCraftPlugin : JavaPlugin(), Listener {
 
         config.options().copyDefaults(true)
         saveConfig()
+
+        //  Prepare and perform migrations
+        doMigrations()
 
         //  Init cryptography
         config.get("security.salt")?.let {
@@ -99,6 +106,7 @@ class EverCraftPlugin : JavaPlugin(), Listener {
         getCommand("e_version")?.setExecutor(EVersionCommand())
         getCommand("e_store")?.setExecutor(EStoreCommand())
         getCommand("e_coupon")?.setExecutor(ECouponCommand())
+        getCommand("e_upgrade")?.setExecutor(EUpgradeCommand())
 
         //  Commands suggestions
         getCommand("e_send")?.tabCompleter = ESendCommandSuggestion()
@@ -108,6 +116,7 @@ class EverCraftPlugin : JavaPlugin(), Listener {
         getCommand("e_withdraw")?.tabCompleter = EWithdrawCommandSuggestion()
         getCommand("e_address")?.tabCompleter = EAddressCommandSuggestion()
         getCommand("e_coupon")?.tabCompleter = ECouponCommandSuggestion()
+        getCommand("e_upgrade")?.tabCompleter = EPKCommandSuggestion()
 
         server.pluginManager.registerEvents(this, this)
 
@@ -134,13 +143,13 @@ class EverCraftPlugin : JavaPlugin(), Listener {
     fun onPlayerJoin(event: PlayerJoinEvent) {
         val player = event.player
         val playerId = player.uniqueId.toString()
-        val firstNotice = PluginSecureStorage.getPlayerFirstNotice(playerId) ?: false
+        val welcomeNotification = PluginSecureStorage.getPlayerWelcomeNotification(playerId) ?: false
 
-        if (!firstNotice) {
+        if (!welcomeNotification) {
             player.sendMessage(
                 PluginLocale.prefixRegular +
                         PluginLocale.getLocalizedMessage(
-                            "greeting",
+                            "notifications.greeting",
                             arrayOf(
                                 player.name,
                                 PluginLocale.currencyName ?: "EVER"
@@ -148,7 +157,21 @@ class EverCraftPlugin : JavaPlugin(), Listener {
                         )
             )
 
-            PluginSecureStorage.setPlayerFirstNotice(playerId, true)
+            PluginSecureStorage.setPlayerWelcomeNotification(playerId, true)
+        }
+
+        val walletsUpgradeNotification = PluginSecureStorage.getWalletUpgradeRequiredNotification(playerId) ?: false
+
+        if (!walletsUpgradeNotification) {
+            val wallets = PluginSecureStorage.walletsToUpgrade(playerId)
+            if (!wallets.isEmpty()) {
+                player.sendMessage(
+                    PluginLocale.prefixRegular +
+                    PluginLocale.getLocalizedMessage("notifications.wallets.upgrade.required")
+                )
+
+                PluginSecureStorage.setWalletUpgradeRequiredNotification(playerId, true)
+            }
         }
 
         Store.givePlayerStoreItem(player)
@@ -178,7 +201,7 @@ class EverCraftPlugin : JavaPlugin(), Listener {
             f.isAccessible = true
             f.set(null, true)
         } catch (e: Exception) {
-            logger.error(
+            logger.warn(
                 "Error 0x1 while registering the glow effect\n" +
                         e.message + "\n" +
                         e.stackTrace.joinToString("\n")
@@ -191,7 +214,7 @@ class EverCraftPlugin : JavaPlugin(), Listener {
             )
             Enchantment.registerEnchantment(glow)
         } catch (e: Exception) {
-            logger.error(
+            logger.warn(
                 "Error 0x2 while registering the glow effect\n" +
                         e.message + "\n" +
                         e.stackTrace.joinToString("\n")
@@ -199,5 +222,9 @@ class EverCraftPlugin : JavaPlugin(), Listener {
         }
     }
 
-
+    @Throws(RuntimeException::class)
+    private fun doMigrations() {
+        Migration_0_2_3()
+        Migration.migrateAll()
+    }
 }

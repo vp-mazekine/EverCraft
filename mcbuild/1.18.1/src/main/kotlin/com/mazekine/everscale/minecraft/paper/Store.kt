@@ -5,8 +5,11 @@ import com.google.gson.annotations.SerializedName
 import com.mazekine.everscale.EVER
 import com.mazekine.everscale.minecraft.paper.providers.FixedBinaryUniqueOrderProvider
 import com.mazekine.everscale.minecraft.paper.providers.IUniqueOrderProvider
+import com.mazekine.libs.CONFIG_STORE_FILE
+import com.mazekine.libs.PLUGIN_NAME
 import com.mazekine.libs.PluginLocale
-import kotlinx.coroutines.*
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.runBlocking
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.TextComponent
 import org.apache.commons.lang.WordUtils
@@ -30,8 +33,6 @@ import org.bukkit.inventory.ItemStack
 import org.slf4j.LoggerFactory
 import java.io.File
 import java.math.BigDecimal
-import java.nio.file.Files
-import java.nio.file.Paths
 
 object Store : Listener {
     //  Logger
@@ -47,8 +48,7 @@ object Store : Listener {
 
     //  Configuration
     private val CONFIG_FILE by lazy {
-        Files.createDirectories(Paths.get("plugins/EverCraft"))
-        File("plugins/EverCraft/store.json")
+        File(CONFIG_STORE_FILE)
     }
     private val config by lazy {
         try {
@@ -485,7 +485,7 @@ object Store : Listener {
          */
         private fun registerEvents() {
             Bukkit.getPluginManager().let { pm ->
-                pm.getPlugin("EverCraft")?.let { plugin ->
+                pm.getPlugin(PLUGIN_NAME)?.let { plugin ->
                     pm.registerEvents(this, plugin)
                 }
             }

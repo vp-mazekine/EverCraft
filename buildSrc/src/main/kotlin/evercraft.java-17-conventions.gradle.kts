@@ -1,9 +1,12 @@
+import gradle.kotlin.dsl.accessors._81c10f498472409810b49a280090f337.implementation
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
 plugins {
     kotlin("jvm")
-    `java-library`
+    java
 }
 
-val targetJavaVersion = 16
+val targetJavaVersion = 17
 val ktorVersion = "1.6.7"
 val logbackVersion = "1.2.8"
 val tonClientVersion = "0.0.42"
@@ -15,9 +18,15 @@ repositories {
         name = "sonatype"
         url = uri("https://oss.sonatype.org/content/groups/public/")
     }
+    maven {
+        name = "papermc-repo"
+        url = uri("https://papermc.io/repo/repository/maven-public/")
+    }
 }
 
 dependencies {
+    implementation(project(":shared"))
+
     implementation("org.jetbrains.kotlin:kotlin-stdlib:1.5.31")
     implementation("org.junit.jupiter:junit-jupiter:5.8.2")
     testImplementation("org.jetbrains.kotlin:kotlin-test:1.6.0")
@@ -30,17 +39,20 @@ dependencies {
     //  Logging
     implementation("ch.qos.logback:logback-classic:$logbackVersion")
 
-    //  REST
-    implementation("io.ktor:ktor-client-core:$ktorVersion")
-    implementation("io.ktor:ktor-client-cio:$ktorVersion")
-    implementation("io.ktor:ktor-client-logging:$ktorVersion")
-    implementation("io.ktor:ktor-client-gson:$ktorVersion")
+    //  bStats
+    implementation("org.bstats:bstats-bukkit:2.2.1")
 
     //  Security
     implementation("org.bouncycastle:bcprov-jdk15on:1.69")
 
     //  EVER
     implementation("ee.nx-01.tonclient:ton-client-kotlin:$tonClientVersion")
+
+    //  REST
+    implementation("io.ktor:ktor-client-core:$ktorVersion")
+    implementation("io.ktor:ktor-client-cio:$ktorVersion")
+    implementation("io.ktor:ktor-client-logging:$ktorVersion")
+    implementation("io.ktor:ktor-client-gson:$ktorVersion")
 
     //  TON SDK dependencies
     implementation("com.fasterxml.jackson.core:jackson-databind:$jacksonVersion")
@@ -54,9 +66,25 @@ dependencies {
     implementation("org.apache.logging.log4j:log4j-core:2.16.0")
 }
 
+java {
+    val javaVersion = JavaVersion.toVersion(targetJavaVersion)
+    sourceCompatibility = javaVersion
+    targetCompatibility = javaVersion
+    if (JavaVersion.current() < javaVersion) {
+        toolchain.languageVersion.set(JavaLanguageVersion.of(targetJavaVersion))
+    }
+}
+
 tasks.withType(JavaCompile::class).configureEach {
     if (targetJavaVersion >= 10 || JavaVersion.current().isJava10Compatible) {
         options.release.set(targetJavaVersion)
+    }
+}
+
+tasks.withType<KotlinCompile> {
+    kotlinOptions {
+        jvmTarget = targetJavaVersion.toString()
+        freeCompilerArgs += "-opt-in=kotlin.RequiresOptIn"
     }
 }
 
@@ -72,29 +100,23 @@ tasks.withType(ProcessResources::class) {
 tasks.jar {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     archiveFileName.set(
-        project.name +
-        "_${project.version}" +
-        ".jar"
+        rootProject.name +
+                "_v" + project.version +
+                "_mc" + project.name +
+                ".jar"
     )
     exclude("META-INF/*.DSA", "META-INF/*.RSA", "META-INF/*.SF")
-    manifest {
-        attributes(mapOf(
-            "Implementation-Title" to project.name + "_shared",
-            "Implementation-Version" to project.version
-        ))
-    }
-    from(configurations.compileClasspath.get().map { if (it.isDirectory) it else zipTree(it) })
+    from(
+        configurations
+            .compileClasspath
+            .get()
+            .filter { it.exists() } //  Fix for non-existing paths
+            .map {
+                if (it.isDirectory) it else zipTree(it)
+            }
+    )
 }
 
 tasks.test {
     useJUnitPlatform()
-}
-
-java {
-    val javaVersion = JavaVersion.toVersion(targetJavaVersion)
-    sourceCompatibility = javaVersion
-    targetCompatibility = javaVersion
-    if (JavaVersion.current() < javaVersion) {
-        toolchain.languageVersion.set(JavaLanguageVersion.of(targetJavaVersion))
-    }
 }

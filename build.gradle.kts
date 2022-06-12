@@ -1,10 +1,11 @@
 plugins {
     kotlin("jvm") //version "1.6.0" apply false
+
 }
 
 allprojects {
     group = "com.mazekine"
-    version = "0.2.2-RC5"
+    version = "0.2.3"
 
     repositories {
         mavenCentral()

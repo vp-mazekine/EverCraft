@@ -1,8 +1,16 @@
 package com.mazekine.libs
 
 import com.google.gson.Gson
+import com.google.gson.JsonArray
+import com.google.gson.JsonObject
+import com.google.gson.JsonParseException
 import com.google.gson.reflect.TypeToken
+import com.mazekine.everscale.EVER
 import com.mazekine.libs.models.UserMappings
+import com.mazekine.libs.models.UserMappings_0_2_2
+import com.mazekine.libs.models.UserNotificationsStatus
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import org.bouncycastle.crypto.params.Ed25519PrivateKeyParameters
 import org.slf4j.LoggerFactory
 import java.io.File
@@ -17,18 +25,18 @@ object PluginSecureStorage {
     private var keyStorageLoaded: Boolean = false
     private var dataStorageLoaded: Boolean = false
 
-    var storagePassword: String = "EverCraft"
+    var storagePassword: String = PLUGIN_NAME
     val initialized: Boolean
         get() = keyStorageLoaded && dataStorageLoaded
 
     init {
-        Files.createDirectories(Paths.get("evercraft"))
+        Files.createDirectories(Paths.get(STORAGE_FOLDER))
     }
 
-    private val keyStorageFile = File("evercraft/pk.dat")
+    private val keyStorageFile = File("$STORAGE_FOLDER/$STORAGE_PRIVATE_KEY_FILE")
     private var keyStorage: MutableMap<String, String> = mutableMapOf()
 
-    private val dataStorageFile = File("evercraft/ud.dat")
+    private val dataStorageFile = File("$STORAGE_FOLDER/$STORAGE_USER_DATA_FILE")
     private var dataStorage: MutableMap<String, UserMappings> = mutableMapOf()
 
     /**
@@ -98,7 +106,7 @@ object PluginSecureStorage {
         } else {
             val data = dataStorageFile.readBytes().toHex()
             val rawStorage = cipher.decryptStringWithPassword(data, storagePassword)
-            val mapType = object : TypeToken<MutableMap<String, UserMappings?>>() {}.type
+            val mapType = object : TypeToken<MutableMap<String, UserMappings>>() {}.type
             Gson().fromJson(rawStorage, mapType)
         }
 
@@ -254,18 +262,75 @@ object PluginSecureStorage {
         return dataStorage.filter { it.value.addresses.contains(address) }.keys.firstOrNull()
     }
 
-    fun getPlayerFirstNotice(id: String): Boolean? {
+    /**
+     * Indicates if the player has received the welcome message
+     *
+     * @param id    User id
+     * @return      *true* if welcome message was shown to user, *false* otherwise
+     */
+    fun getPlayerWelcomeNotification(id: String): Boolean? {
         require(initialized) { "Secure storage was not properly initialized" }
 
-        return dataStorage[id]?.firstNotice
+        return dataStorage[id]?.notifications?.welcomeMessage
     }
 
-    fun setPlayerFirstNotice(id: String, flag: Boolean) {
+    fun setPlayerWelcomeNotification(id: String, flag: Boolean) {
         require(initialized) { "Secure storage was not properly initialized" }
 
         if (!dataStorage.containsKey(id)) initPlayerData(id)
-        dataStorage[id]?.firstNotice = flag
+        dataStorage[id]?.notifications?.welcomeMessage = flag
         dumpDataStorage()
+    }
+
+    fun getWalletUpgradeRequiredNotification(id: String): Boolean? {
+        require(initialized) { "Secure storage was not properly initialized" }
+
+        return dataStorage[id]?.notifications?.walletUpgradeRequired
+    }
+
+    fun setWalletUpgradeRequiredNotification(id: String, flag: Boolean) {
+        require(initialized) { "Secure storage was not properly initialized" }
+
+        if (!dataStorage.containsKey(id)) initPlayerData(id)
+        dataStorage[id]?.notifications?.walletUpgradeRequired = flag
+        dumpDataStorage()
+    }
+
+    fun walletsToUpgrade(id: String): List<String> {
+        require(initialized) { "Secure storage was not properly initialized" }
+
+        val addresses = dataStorage[id]?.addresses ?: return emptyList()
+        if (addresses.isEmpty()) return emptyList()
+
+        val result: MutableList<String> = mutableListOf()
+
+        //logger.info("Obtaining wallets to upgrade for user $id...")
+        runBlocking {
+            val request = launch {
+                addresses.forEachIndexed { index, address ->
+                    launch {
+                        //logger.info("Retrieving metadata for address $address...")
+                        EVER.getAddressInfo(address)?.let {
+/*
+                            logger.info(
+                                "\nAddress:   \t$address\n" +
+                                "Custodians:\t${it.custodians}\n" +
+                                "Confirms:  \t${it.confirmations}"
+                            )
+*/
+                            if (it.custodians == 2 && it.confirmations == 2) result.add(address)
+                        }
+                    }
+                }
+            }
+
+            request.join()
+        }
+
+/*
+        logger.info("Wallets to upgrade: " + gson.toJson(result))
+*/
+        return result
     }
 
     fun setPlayerAddress(id: String, address: String) {
@@ -291,6 +356,13 @@ object PluginSecureStorage {
             index < 0 -> null
             else -> dataStorage[id]!!.addresses[index]
         }
+    }
+
+    fun deletePlayerAddress(id: String, address: String): Boolean? {
+        require(initialized) { "Secure storage was not properly initialized" }
+
+        if (!dataStorage.containsKey(id)) return null
+        return dataStorage[id]!!.addresses.remove(address)
     }
 
     fun getAllPlayersData(): MutableMap<String, UserMappings> = dataStorage

@@ -1,21 +1,16 @@
 import gradle.kotlin.dsl.accessors._81c10f498472409810b49a280090f337.implementation
-import org.jetbrains.kotlin.gradle.dsl.KotlinCompile
-import org.jetbrains.kotlin.gradle.utils.loadPropertyFromResources
-
-//import gradle.kotlin.dsl.accessors._81c10f498472409810b49a280090f337.implementation
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
     kotlin("jvm")
     java
 }
 
-val targetJavaVersion = 17
+val targetJavaVersion = 16
 val ktorVersion = "1.6.7"
 val logbackVersion = "1.2.8"
 val tonClientVersion = "0.0.42"
 val jacksonVersion = "2.11.4"
-
-var targetMCVersion = ""
 
 repositories {
     mavenCentral()
@@ -46,6 +41,9 @@ dependencies {
 
     //  bStats
     implementation("org.bstats:bstats-bukkit:2.2.1")
+
+    //  Security
+    implementation("org.bouncycastle:bcprov-jdk15on:1.69")
 
     //  EVER
     implementation("ee.nx-01.tonclient:ton-client-kotlin:$tonClientVersion")
@@ -80,6 +78,13 @@ java {
 tasks.withType(JavaCompile::class).configureEach {
     if (targetJavaVersion >= 10 || JavaVersion.current().isJava10Compatible) {
         options.release.set(targetJavaVersion)
+    }
+}
+
+tasks.withType<KotlinCompile> {
+    kotlinOptions {
+        jvmTarget = targetJavaVersion.toString()
+        freeCompilerArgs += "-opt-in=kotlin.RequiresOptIn"
     }
 }
 

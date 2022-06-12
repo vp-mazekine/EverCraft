@@ -1,6 +1,6 @@
 
 plugins {
-    id("evercraft.java-conventions")
+    id("evercraft.java-17-conventions")
 }
 
 dependencies {
