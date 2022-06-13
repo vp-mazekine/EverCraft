@@ -38,7 +38,7 @@ Please report any issues at the [Issues](https://github.com/vp-mazekine/EverCraf
 * Create the folder `EverCraft` in `plugins` folder
 * Clone the `config.yml` file using the command below:
 ```shell
-$> wget https://raw.githubusercontent.com/vp-mazekine/EverCraft/master/src/main/resources/config.yml --no-check-certificate
+$> wget https://raw.githubusercontent.com/vp-mazekine/EverCraft/master/mcbuild/1.17.1/src/main/resources/config.yml --no-check-certificate
 ```
 * Configure the plugin as described in the [Configuration](#configuration) section below 
 * Restart your server and enjoy
