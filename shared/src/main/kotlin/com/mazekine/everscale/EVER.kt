@@ -24,10 +24,12 @@ import kotlin.jvm.Throws
 
 object EVER {
     private var config: APIConfig? = null
-    private var apiEndpoint: String? = System.getenv("EVERCRAFT_API_ENDPOINT")
-    private var apiPrefix: String? = System.getenv("EVERCRAFT_API_PREFIX")
-    private var apiKey: String? = System.getenv("EVERCRAFT_API_KEY")
-    private var apiSecret: String? = System.getenv("EVERCRAFT_API_SECRET")
+    private var apiEndpoint: String? = null
+    private var apiPrefix: String? = null
+    private var apiKey: String? = null
+    private var apiSecret: String? = null
+    private var tonosNetwork: String? = null
+    private var tonosEndpoints: MutableList<String> = mutableListOf()
 
     private val abi by lazy { TonUtils.readAbi("safemultisig/SafeMultisigWallet.abi.json") }
     private val logger by lazy { LoggerFactory.getLogger(this::class.java) }
@@ -53,7 +55,15 @@ object EVER {
      * EVER client
      */
     val everClient by lazy {
-        TonClient(TonClientConfig(NetworkConfig(serverAddress = "main.ton.dev")))
+        TonClient(
+            TonClientConfig(
+                if (tonosEndpoints.isNotEmpty()) {
+                    NetworkConfig(endpoints = tonosEndpoints)
+                } else {
+                    NetworkConfig(serverAddress = tonosNetwork)
+                }
+            )
+        )
     }
 
     /**
@@ -63,33 +73,43 @@ object EVER {
      * @throws IllegalArgumentException
      */
     @Throws(IllegalArgumentException::class)
-    fun loadConfiguration(apiConfig: APIConfig) {
+    fun loadConfiguration(apiConfig: APIConfig, tonosConfig: TonosConfig) {
         config = apiConfig
 
         apiEndpoint = requireNotNull(config?.endpoint) { "Ever API endpoint is not set. Example: \"https://ton-api.broxus.com\"" }
         apiPrefix = requireNotNull(config?.prefix) { "Ever API prefix is not set. Example: \"/ton/v3\"" }
         apiKey = requireNotNull(config?.key) { "Ever API key is not set" }
         apiSecret = requireNotNull(config?.secret) { "Ever API secret is not set" }
+
+        tonosConfig.endpoints?.let {
+            if (it.isNotEmpty()) {
+                tonosEndpoints = it
+            }
+        }
+
+        if (tonosEndpoints.isEmpty()) {
+            tonosNetwork = requireNotNull(tonosConfig.network) { "Tonos network hasn't been specified" }
+        }
     }
 
     private fun apiIsConfigured(): Boolean =
         apiEndpoint != null &&
-        apiPrefix   != null &&
-        apiKey      != null &&
-        apiSecret   != null
+            apiPrefix != null &&
+            apiKey != null &&
+            apiSecret != null
 
     /**
      * Prepare the signature for API calls
      *
      * @param path The path to the method in API, e.g. <pre>/address/check</pre>
      * @param body The body that will be sent to the method.
-     * @return  Encoded signature
+     * @return Encoded signature
      */
     private fun sign(path: String, body: String? = null): Pair<String, Long>? {
-        if(!apiIsConfigured()) {
+        if (!apiIsConfigured()) {
             logger.error(
                 "[sign] " +
-                        getLocalizedMessage("error.tonapi.not_configured")
+                    getLocalizedMessage("error.tonapi.not_configured")
             )
             return null
         }
@@ -122,10 +142,10 @@ object EVER {
      * @return
      */
     suspend fun checkAddress(address: String): Boolean? {
-        if(!apiIsConfigured()) {
+        if (!apiIsConfigured()) {
             logger.error(
                 "[checkAddress] " +
-                        getLocalizedMessage("error.tonapi.not_configured")
+                    getLocalizedMessage("error.tonapi.not_configured")
             )
             return null
         }
@@ -150,14 +170,14 @@ object EVER {
         } catch (e: ResponseException) {
             logger.error(
                 "[checkAddress] Error ${e.response.status.value}: ${e.response.status.description} when trying to validate address $address\n" +
-                        e.response.readText()
+                    e.response.readText()
             )
             return null
         } catch (e: Exception) {
             logger.error(
                 "[checkAddress] Couldn't validate the EVER address $address\n" +
-                        e.message + "\n" +
-                        e.stackTrace.joinToString("\n")
+                    e.message + "\n" +
+                    e.stackTrace.joinToString("\n")
             )
             return null
         }
@@ -182,17 +202,21 @@ object EVER {
         custodiansPublicKeys: List<String>,
         workchainId: Int = 0
     ): String? {
-        if(!apiIsConfigured()) {
+        if (!apiIsConfigured()) {
             logger.error(
                 "[createAddress] " +
-                        getLocalizedMessage("error.tonapi.not_configured")
+                    getLocalizedMessage("error.tonapi.not_configured")
             )
             return null
         }
 
         val path = "$apiPrefix/address/create"
         val body = CreateAddressInput(
-            accountType, confirmations, custodians, custodiansPublicKeys, workchainId
+            accountType,
+            confirmations,
+            custodians,
+            custodiansPublicKeys,
+            workchainId
         ).toJson()
         val (signature, nonce) = sign(path, body) ?: return null
 
@@ -212,14 +236,14 @@ object EVER {
         } catch (e: ResponseException) {
             logger.error(
                 "[checkAddress] Error ${e.response.status.value}: ${e.response.status.description} when trying to create address\n" +
-                        e.response.readText()
+                    e.response.readText()
             )
             return null
         } catch (e: Exception) {
             logger.error(
                 "[checkAddress] Couldn't create the EVER address\n" +
-                        e.message + "\n" +
-                        e.stackTrace.joinToString("\n")
+                    e.message + "\n" +
+                    e.stackTrace.joinToString("\n")
             )
             return null
         }
@@ -228,10 +252,10 @@ object EVER {
     }
 
     suspend fun getAddress(address: String): AddressBalanceOutputData? {
-        if(!apiIsConfigured()) {
+        if (!apiIsConfigured()) {
             logger.error(
                 "[getAddress] " +
-                        getLocalizedMessage("error.tonapi.not_configured")
+                    getLocalizedMessage("error.tonapi.not_configured")
             )
             return null
         }
@@ -252,14 +276,14 @@ object EVER {
         } catch (e: ResponseException) {
             logger.error(
                 "[getAddress] Error ${e.response.status.value}: ${e.response.status.description} when trying to get EVER address $address\n" +
-                        e.response.readText()
+                    e.response.readText()
             )
             null
         } catch (e: Exception) {
             logger.error(
                 "[getAddress] Couldn't get the EVER address $address\n" +
-                        e.message + "\n" +
-                        e.stackTrace.joinToString("\n")
+                    e.message + "\n" +
+                    e.stackTrace.joinToString("\n")
             )
             null
         }
@@ -269,13 +293,13 @@ object EVER {
      * Gets address info
      *
      * @param address   Address
-     * @return          Address metadata
+     * @return Address metadata
      */
     suspend fun getAddressInfo(address: String): AddressInfoOutputData? {
-        if(!apiIsConfigured()) {
+        if (!apiIsConfigured()) {
             logger.error(
                 "[getAddressInfo] " +
-                        getLocalizedMessage("error.tonapi.not_configured")
+                    getLocalizedMessage("error.tonapi.not_configured")
             )
             return null
         }
@@ -296,14 +320,14 @@ object EVER {
         } catch (e: ResponseException) {
             logger.error(
                 "[getAddressInfo] Error ${e.response.status.value}: ${e.response.status.description} when trying to get info for EVER address $address\n" +
-                        e.response.readText()
+                    e.response.readText()
             )
             null
         } catch (e: Exception) {
             logger.error(
                 "[getAddressInfo] Couldn't get the EVER address info for $address\n" +
-                        e.message + "\n" +
-                        e.stackTrace.joinToString("\n")
+                    e.message + "\n" +
+                    e.stackTrace.joinToString("\n")
             )
             null
         }
@@ -329,10 +353,10 @@ object EVER {
         id: UUID = UUID.randomUUID(),
         onFail: ((TransactionFailReason) -> Unit)? = null
     ): TransactionIds? /*Triple<String, String?, String?>?*/ {
-        if(!apiIsConfigured()) {
+        if (!apiIsConfigured()) {
             logger.error(
                 "[createTransaction] " +
-                        getLocalizedMessage("error.tonapi.not_configured")
+                    getLocalizedMessage("error.tonapi.not_configured")
             )
             onFail?.let { it(TransactionFailReason.EVER_API_NOT_CONFIGURED) }
             return null
@@ -353,7 +377,8 @@ object EVER {
         }
 
         val tx = SendTransactionData(
-            type, toAddress,
+            type,
+            toAddress,
             value
         )
 
@@ -382,29 +407,33 @@ object EVER {
         } catch (e: ResponseException) {
             logger.error(
                 "[createTransaction] Error ${e.response.status.value}: ${e.response.status.description} when trying to send transaction of $value EVER from address $fromAddress to $toAddress\n" +
-                        e.response.readText()
+                    e.response.readText()
             )
-            onFail?.let { it(
-                when {
-                    e.response.readText().contains("Invalid value") -> TransactionFailReason.TX_VALUE_EMPTY
-                    e.response.readText().contains("Insufficient balance") -> TransactionFailReason.INSUFFICIENT_BALANCE
-                    else -> TransactionFailReason.OTHER
-                }
-            ) }
+            onFail?.let {
+                it(
+                    when {
+                        e.response.readText().contains("Invalid value") -> TransactionFailReason.TX_VALUE_EMPTY
+                        e.response.readText().contains("Insufficient balance") -> TransactionFailReason.INSUFFICIENT_BALANCE
+                        else -> TransactionFailReason.OTHER
+                    }
+                )
+            }
             return null
         } catch (e: Exception) {
             logger.error(
                 "[createTransaction] Error when trying to send transaction of $value EVER from address $fromAddress to $toAddress\n" +
-                        e.message + "\n" +
-                        e.stackTrace.joinToString("\n")
+                    e.message + "\n" +
+                    e.stackTrace.joinToString("\n")
             )
-            onFail?.let { it(
-                when {
-                    (e.message ?: "").contains("Invalid value") -> TransactionFailReason.TX_VALUE_EMPTY
-                    (e.message ?: "").contains("Insufficient balance") -> TransactionFailReason.INSUFFICIENT_BALANCE
-                    else -> TransactionFailReason.OTHER
-                }
-            ) }
+            onFail?.let {
+                it(
+                    when {
+                        (e.message ?: "").contains("Invalid value") -> TransactionFailReason.TX_VALUE_EMPTY
+                        (e.message ?: "").contains("Insufficient balance") -> TransactionFailReason.INSUFFICIENT_BALANCE
+                        else -> TransactionFailReason.OTHER
+                    }
+                )
+            }
             return null
         }
 
@@ -412,13 +441,15 @@ object EVER {
             logger.error(
                 "[createTransaction] Error while creating the transaction of $value EVER from address $fromAddress to $toAddress\nError message: ${response.errorMessage}"
             )
-            onFail?.let { it(
-                when {
-                    response.errorMessage.contains("Invalid value") -> TransactionFailReason.TX_VALUE_EMPTY
-                    response.errorMessage.contains("Insufficient balance") -> TransactionFailReason.INSUFFICIENT_BALANCE
-                    else -> TransactionFailReason.OTHER
-                }
-            ) }
+            onFail?.let {
+                it(
+                    when {
+                        response.errorMessage.contains("Invalid value") -> TransactionFailReason.TX_VALUE_EMPTY
+                        response.errorMessage.contains("Insufficient balance") -> TransactionFailReason.INSUFFICIENT_BALANCE
+                        else -> TransactionFailReason.OTHER
+                    }
+                )
+            }
             return null
         }
 
@@ -461,10 +492,10 @@ object EVER {
     ): TransactionOutputData? {
         if (txId == null && messageHash == null && txHash == null) return null
 
-        if(!apiIsConfigured()) {
+        if (!apiIsConfigured()) {
             logger.error(
                 "[getTransaction] " +
-                        getLocalizedMessage("error.tonapi.not_configured")
+                    getLocalizedMessage("error.tonapi.not_configured")
             )
             return null
         }
@@ -517,7 +548,7 @@ object EVER {
      */
     suspend fun getSafeMultisigTransactions(address: String): List<SafeMultisigTransaction> {
         //  If the address is on API and have the UnInit state, return an empty list
-        if(getAddress(address)?.accountStatus == AccountStatus.UnInit) return emptyList()
+        if (getAddress(address)?.accountStatus == AccountStatus.UnInit) return emptyList()
 
         val message = ParamsOfEncodeMessage(
             abi = abi,
@@ -571,8 +602,8 @@ object EVER {
             } catch (e: Exception) {
                 logger.error(
                     "[getSafeMultisigTransactions] Got an exception while retrieving multisig transactions\n" +
-                            e.message + "\n" +
-                            e.stackTrace.joinToString("\n")
+                        e.message + "\n" +
+                        e.stackTrace.joinToString("\n")
                 )
                 listOf()
             }
@@ -612,7 +643,13 @@ object EVER {
 
         //  Create transaction
         val txData = createTransaction(
-            fromAddress, toAddress, value, type, bounce, id, onFail
+            fromAddress,
+            toAddress,
+            value,
+            type,
+            bounce,
+            id,
+            onFail
         ) ?: return null
 
         val (txId, msgHash, txHash, msigId) = txData
@@ -624,7 +661,7 @@ object EVER {
                 TransactionStatus.New -> {
                     /* no-op */
                 }
-                TransactionStatus.Done -> break     //  Continue execution
+                TransactionStatus.Done -> break //  Continue execution
                 TransactionStatus.PartiallyDone, TransactionStatus.Error, null -> {
                     logger.error(
                         "[createTransactionToSignOnMultisig] Unexpected answer from TON API\n$tx"

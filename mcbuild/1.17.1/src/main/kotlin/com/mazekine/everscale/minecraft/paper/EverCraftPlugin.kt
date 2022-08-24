@@ -3,6 +3,7 @@ package com.mazekine.everscale.minecraft.paper
 import com.google.gson.GsonBuilder
 import com.mazekine.everscale.EVER
 import com.mazekine.everscale.models.APIConfig
+import com.mazekine.everscale.models.TonosConfig
 import com.mazekine.libs.ChaCha20Poly1305
 import com.mazekine.libs.PLUGIN_NAME
 import com.mazekine.libs.bStats.Metrics
@@ -86,7 +87,14 @@ class EverCraftPlugin : JavaPlugin(), Listener {
             config.getString("api.secret", null)
                 ?: System.getenv("EVERCRAFT_API_SECRET")
         )
-        EVER.loadConfiguration(everAPIConfig)
+
+        val tonosConfig = TonosConfig(
+            config.getString("tonos.network", "main.ton.dev")
+                ?: System.getenv("EVERCRAFT_TONOS_NETWORK"),
+            config.getStringList("tonos.endpoints")
+        )
+
+        EVER.loadConfiguration(everAPIConfig, tonosConfig)
 
         //  Register the glow effect for the store item
         registerGlowEffect()

@@ -3,12 +3,13 @@ package com.mazekine.everscale.minecraft.paper
 import com.google.gson.GsonBuilder
 import com.mazekine.everscale.EVER
 import com.mazekine.everscale.models.APIConfig
+import com.mazekine.everscale.models.TonosConfig
 import com.mazekine.libs.ChaCha20Poly1305
 import com.mazekine.libs.PLUGIN_NAME
-import com.mazekine.libs.bStats.Metrics
 import com.mazekine.libs.PluginLocale
 import com.mazekine.libs.PluginSecureStorage
 import com.mazekine.libs.bStats.CustomMetrics
+import com.mazekine.libs.bStats.Metrics
 import com.mazekine.libs.migration.Migration
 import com.mazekine.libs.migration.Migration_0_2_3
 import org.bukkit.NamespacedKey
@@ -86,7 +87,14 @@ class EverCraftPlugin : JavaPlugin(), Listener {
             config.getString("api.secret", null)
                 ?: System.getenv("EVERCRAFT_API_SECRET")
         )
-        EVER.loadConfiguration(everAPIConfig)
+
+        val tonosConfig = TonosConfig(
+            config.getString("tonos.network", "main.ton.dev")
+                ?: System.getenv("EVERCRAFT_TONOS_NETWORK"),
+            config.getStringList("tonos.endpoints")
+        )
+
+        EVER.loadConfiguration(everAPIConfig, tonosConfig)
 
         //  Register the glow effect for the store item
         registerGlowEffect()
@@ -148,13 +156,13 @@ class EverCraftPlugin : JavaPlugin(), Listener {
         if (!welcomeNotification) {
             player.sendMessage(
                 PluginLocale.prefixRegular +
-                        PluginLocale.getLocalizedMessage(
-                            "notifications.greeting",
-                            arrayOf(
-                                player.name,
-                                PluginLocale.currencyName ?: "EVER"
-                            )
+                    PluginLocale.getLocalizedMessage(
+                        "notifications.greeting",
+                        arrayOf(
+                            player.name,
+                            PluginLocale.currencyName ?: "EVER"
                         )
+                    )
             )
 
             PluginSecureStorage.setPlayerWelcomeNotification(playerId, true)
@@ -167,7 +175,7 @@ class EverCraftPlugin : JavaPlugin(), Listener {
             if (!wallets.isEmpty()) {
                 player.sendMessage(
                     PluginLocale.prefixRegular +
-                    PluginLocale.getLocalizedMessage("notifications.wallets.upgrade.required")
+                        PluginLocale.getLocalizedMessage("notifications.wallets.upgrade.required")
                 )
 
                 PluginSecureStorage.setWalletUpgradeRequiredNotification(playerId, true)
@@ -203,8 +211,8 @@ class EverCraftPlugin : JavaPlugin(), Listener {
         } catch (e: Exception) {
             logger.warn(
                 "Error 0x1 while registering the glow effect\n" +
-                        e.message + "\n" +
-                        e.stackTrace.joinToString("\n")
+                    e.message + "\n" +
+                    e.stackTrace.joinToString("\n")
             )
         }
 
@@ -216,8 +224,8 @@ class EverCraftPlugin : JavaPlugin(), Listener {
         } catch (e: Exception) {
             logger.warn(
                 "Error 0x2 while registering the glow effect\n" +
-                        e.message + "\n" +
-                        e.stackTrace.joinToString("\n")
+                    e.message + "\n" +
+                    e.stackTrace.joinToString("\n")
             )
         }
     }

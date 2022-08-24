@@ -1,16 +1,22 @@
 plugins {
-    kotlin("jvm") //version "1.6.0" apply false
-
+    kotlin("jvm") // version "1.6.0" apply false
+    id("org.jlleitschuh.gradle.ktlint") version "10.3.0"
 }
 
 allprojects {
     group = "com.mazekine"
-    version = "0.2.3"
+    version = "0.2.4-alpha"
 
     repositories {
         mavenCentral()
     }
+}
 
+subprojects {
+    apply(plugin = "org.jlleitschuh.gradle.ktlint")
+    configure<org.jlleitschuh.gradle.ktlint.KtlintExtension> {
+        verbose.set(true)
+    }
 }
 
 dependencies {
@@ -28,11 +34,13 @@ configure(listOf(":shared")) {
                     outgoing
                         .variants
                         .getByName("classes")
-                        .artifact(mapOf(
-                            "file" to compileKotlinTask.destinationDirectory,
-                            "type" to "java-classes-directory",
-                            "builtBy" to compileKotlinTask
-                        ))
+                        .artifact(
+                            mapOf(
+                                "file" to compileKotlinTask.destinationDirectory,
+                                "type" to "java-classes-directory",
+                                "builtBy" to compileKotlinTask
+                            )
+                        )
                 }
             }
         }
